@@ -1,6 +1,7 @@
 apply plugin: 'groovy'
 apply plugin: 'idea'
 apply from: rootProject.file('gradle/convention.gradle')
+apply from: rootProject.file('gradle/publish.gradle')
 
 
 // In this section you declare where to find the dependencies of your project
