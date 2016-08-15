@@ -20,8 +20,13 @@ test:
     - 'find . -type f \( -name "*.html" -or -name "*.xml" \) | grep "build/coverage" | xargs cp --parents -t $CIRCLE_TEST_REPORTS/'
     - codecov --token=${CODECOV_TOKEN}
 
-#deployment:
-#  master:
-#    branch: master
-#    commands:
+deployment:
+  snapshot:
+    branch: master
+    commands:
+      - ./gradlew publish -PsmartThingsArtifactoryUserName=$ARTIFACTORY_USERNAME -PsmartThingsArtifactoryPassword=$ARTIFACTORY_PASSWORD
 
+  release:
+    branch: release
+    commands:
+      - ./gradlew bintrayUpload

@@ -90,23 +90,23 @@ bintrayUpload { task ->
 	}
 }
 
-//bintray {
-//	publications = ['mavenJava']
-//	dryRun = false
-//	publish = true
-//	pkg {
-//		repo = 'maven'
-//		name = 'smartthings.ratpack-sqs'
-//		userOrg = 'smartthingsoss'
-//		licenses = ['Apache-2.0']
-//		desc = 'Ratpack SQS'
-//		labels = ['ratpack', 'sqs']
-//		websiteUrl = 'https://github.com/SmartThingsOSS/ratpack-sqs'
-//		issueTrackerUrl = 'https://github.com/SmartThingsOSS/ratpack-sqs/issues'
-//		vcsUrl = 'https://github.com/SmartThingsOSS/ratpack-sqs.git'
-//		version {
-//			name = project.version
-//			vcsTag = project.version
-//		}
-//	}
-//}
+bintray {
+	publications = ['mavenJava']
+	dryRun = false
+	publish = true
+	pkg {
+		repo = 'maven'
+		name = 'smartthings.ratpack-sqs'
+		userOrg = 'smartthingsoss'
+		licenses = ['Apache-2.0']
+		desc = 'Ratpack SQS'
+		labels = ['ratpack', 'sqs']
+		websiteUrl = 'https://github.com/SmartThingsOSS/ratpack-sqs'
+		issueTrackerUrl = 'https://github.com/SmartThingsOSS/ratpack-sqs/issues'
+		vcsUrl = 'https://github.com/SmartThingsOSS/ratpack-sqs.git'
+		version {
+			name = project.version
+			vcsTag = project.version
+		}
+	}
+}
