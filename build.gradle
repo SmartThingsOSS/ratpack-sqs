@@ -9,20 +9,30 @@ buildscript {
     }
 }
 
-apply plugin: 'groovy'
-apply plugin: 'idea'
-apply from: rootProject.file('gradle/convention.gradle')
-apply from: rootProject.file('gradle/publish.gradle')
 
+def jvmEncoding = java.nio.charset.Charset.defaultCharset().name()
+if (jvmEncoding != "UTF-8") {
+    throw new IllegalStateException("Build environment must be UTF-8 (it is: $jvmEncoding) - add '-Dfile.encoding=UTF-8' to the GRADLE_OPTS environment variable ")
+}
 
-// In this section you declare where to find the dependencies of your project
-repositories {
-    // Use 'jcenter' for resolving your dependencies.
-    // You can declare any Maven/Ivy/file repository here.
-    jcenter()
+if (!JavaVersion.current().java8Compatible) {
+    throw new IllegalStateException("Must be built with Java 8 or higher")
 }
 
 group 'smartthings'
+version = rootProject.file('version.txt').text.trim()
+
+apply plugin: "base"
+apply plugin: 'groovy'
+apply plugin: 'idea'
+apply plugin: 'com.github.ben-manes.versions'
+apply from: rootProject.file('gradle/publish.gradle')
+apply from: rootProject.file('gradle/convention.gradle')
+
+repositories {
+    mavenLocal()
+    jcenter()
+}
 
 compileJava {
     options.compilerArgs << "-Xlint:unchecked"
