@@ -47,7 +47,6 @@ class DefaultSqsConsumerServiceSpec extends Specification {
                 while(true) {}
             })
         })
-        0 * _
 
         when:
         ExecHarness.runSingle({ e ->
