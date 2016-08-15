@@ -1,0 +1,32 @@
+apply plugin: 'groovy'
+apply plugin: 'idea'
+apply from: rootProject.file('gradle/convention.gradle')
+
+
+// In this section you declare where to find the dependencies of your project
+repositories {
+    // Use 'jcenter' for resolving your dependencies.
+    // You can declare any Maven/Ivy/file repository here.
+    jcenter()
+}
+
+group 'smartthings'
+
+compileJava {
+    options.compilerArgs << "-Xlint:unchecked"
+}
+
+// In this section you declare the dependencies for your production and test code
+dependencies {
+    compile "io.ratpack:ratpack-core:${ratpackVersion}"
+    compile "io.ratpack:ratpack-guice:${ratpackVersion}"
+    compile "io.ratpack:ratpack-rx:${ratpackVersion}"
+    compile "com.amazonaws:aws-java-sdk-sqs:1.11.19"
+    compile 'com.google.code.findbugs:jsr305:3.0.0'
+
+    testCompile 'org.spockframework:spock-core:1.0-groovy-2.4'
+    testCompile "io.ratpack:ratpack-groovy-test:${ratpackVersion}"
+    testCompile 'cglib:cglib-nodep:3.2.4'
+    testRuntime "org.slf4j:slf4j-api:${slf4jVersion}"
+    testRuntime 'ch.qos.logback:logback-classic:1.1.7'
+}
