@@ -7,6 +7,7 @@ import ratpack.registry.Registry
 import ratpack.service.StartEvent
 import ratpack.service.StopEvent
 import ratpack.test.exec.ExecHarness
+import smartthings.ratpack.sqs.SqsModule
 import smartthings.ratpack.sqs.SqsService
 import smartthings.ratpack.sqs.circuitbreaker.CircuitBreaker
 import smartthings.ratpack.sqs.circuitbreaker.CircuitBreakerListener
@@ -25,7 +26,8 @@ class DefaultSqsConsumerServiceSpec extends Specification {
         Consumer consumer1 = Mock()
         Consumer consumer2 = Mock()
         CircuitBreaker circuitBreaker = Mock()
-        DefaultSqsConsumerService defaultSqsConsumerService = new DefaultSqsConsumerService(sqsService)
+        SqsModule.Config config = buildConfig(true)
+        DefaultSqsConsumerService defaultSqsConsumerService = new DefaultSqsConsumerService(config, sqsService)
 
         when:
         ExecHarness.runSingle({ e ->
@@ -57,5 +59,26 @@ class DefaultSqsConsumerServiceSpec extends Specification {
         1 * consumer1.eventHandler(SqsConsumerEvent.STOPPED_EVENT)
         1 * consumer2.eventHandler(SqsConsumerEvent.STOPPED_EVENT)
         0 * _
+    }
+
+    void 'it should not initialize when sqs is disabled'() {
+        given:
+        StartEvent startEvent = Mock()
+        SqsModule.Config config = buildConfig(false)
+        DefaultSqsConsumerService defaultSqsConsumerService = new DefaultSqsConsumerService(config, sqsService)
+
+        when:
+        ExecHarness.runSingle({ e ->
+            defaultSqsConsumerService.onStart(startEvent)
+        })
+
+        then:
+        0 * _
+    }
+
+    SqsModule.Config buildConfig(boolean enabled) {
+        SqsModule.Config config = new SqsModule.Config()
+        config.enabled = enabled
+        return config
     }
 }

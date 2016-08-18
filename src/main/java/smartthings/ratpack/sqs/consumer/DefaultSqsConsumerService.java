@@ -7,6 +7,7 @@ import ratpack.service.DependsOn;
 import ratpack.service.Service;
 import ratpack.service.StartEvent;
 import ratpack.service.StopEvent;
+import smartthings.ratpack.sqs.SqsModule;
 import smartthings.ratpack.sqs.SqsService;
 import smartthings.ratpack.sqs.circuitbreaker.CircuitBreaker;
 import smartthings.ratpack.sqs.circuitbreaker.CircuitBreakerListener;
@@ -24,18 +25,44 @@ import java.util.stream.IntStream;
 @DependsOn(SqsService.class)
 public class DefaultSqsConsumerService implements SqsConsumerService {
 
+    private final SqsModule.Config config;
     private final SqsService sqs;
     private CircuitBreaker circuitBreaker;
     private List<ConsumerAction> actions = new ArrayList<>();
     private List<SqsConsumerEventListener> listeners = new ArrayList<>();
 
     @Inject
-    public DefaultSqsConsumerService(SqsService sqs) {
+    public DefaultSqsConsumerService(SqsModule.Config config, SqsService sqs) {
+        this.config = config;
         this.sqs = sqs;
     }
 
     @Override
     public void onStart(StartEvent event) throws Exception {
+        if (config.isEnabled()) {
+            init(event);
+        }
+    }
+
+    @Override
+    public void onStop(StopEvent event) throws Exception {
+        actions.forEach(ConsumerAction::shutdown);
+        notifyEventListeners(SqsConsumerEvent.STOPPED_EVENT);
+    }
+
+    /**
+     * Register an event listener.  Alternatively, override event handler on Consumer.
+     * @param listener
+     */
+    public void registerEventListener(SqsConsumerEventListener listener) {
+        listeners.add(listener);
+    }
+
+    private void notifyEventListeners(SqsConsumerEvent event) {
+        listeners.forEach((listener) -> listener.eventNotification(event));
+    }
+
+    private void init(StartEvent event) {
         Iterator<? extends Consumer> it = event.getRegistry().getAll(TypeToken.of(Consumer.class)).iterator();
         circuitBreaker = event.getRegistry().get(CircuitBreaker.class);
         circuitBreaker.init(new CircuitBreakerListener() {
@@ -57,8 +84,8 @@ public class DefaultSqsConsumerService implements SqsConsumerService {
                 registerEventListener((e) -> consumer.eventHandler(e));
 
                 IntStream
-                    .rangeClosed(1, concurrency)
-                    .forEach((action) -> actions.add(new ConsumerAction(sqs, consumer, circuitBreaker)));
+                        .rangeClosed(1, concurrency)
+                        .forEach((action) -> actions.add(new ConsumerAction(sqs, consumer, circuitBreaker)));
             });
         }
 
@@ -69,23 +96,4 @@ public class DefaultSqsConsumerService implements SqsConsumerService {
 
         notifyEventListeners(SqsConsumerEvent.STARTED_EVENT);
     }
-
-    @Override
-    public void onStop(StopEvent event) throws Exception {
-        actions.forEach(ConsumerAction::shutdown);
-        notifyEventListeners(SqsConsumerEvent.STOPPED_EVENT);
-    }
-
-    /**
-     * Register an event listener.  Alternatively, override event handler on Consumer.
-     * @param listener
-     */
-    public void registerEventListener(SqsConsumerEventListener listener) {
-        listeners.add(listener);
-    }
-
-    private void notifyEventListeners(SqsConsumerEvent event) {
-        listeners.forEach((listener) -> listener.eventNotification(event));
-    }
-
 }
