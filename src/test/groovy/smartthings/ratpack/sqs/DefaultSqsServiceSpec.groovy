@@ -17,8 +17,10 @@ import java.util.concurrent.CompletableFuture
 
 class DefaultSqsServiceSpec extends Specification {
 
-    SqsConfigService sqsConfigService = Mock()
-    AmazonSQSAsync sqs = Mock()
+    AmazonSQSAsync sqs = Mock(AmazonSQSAsync)
+    SqsConfigService sqsConfigService = Mock(SqsConfigService, {
+        getAmazonSQSAsync(_) >> sqs
+    })
 
     @AutoCleanup
     ExecHarness harness = ExecHarness.harness()
@@ -40,6 +42,9 @@ class DefaultSqsServiceSpec extends Specification {
         then:
         1 * sqsConfigService.getAmazonSQSAsync(config.getRegion()) >> sqs
         0 * _
+
+        and:
+        0 * sqs.setEndpoint(config.getEndpoint())
     }
 
     void 'it should not initialize on startup when disabled'() {
@@ -58,6 +63,25 @@ class DefaultSqsServiceSpec extends Specification {
 
         then:
         0 * _
+    }
+
+    void 'it should initialize with provided sqs endpoint'() {
+        given:
+        StartEvent startEvent = Mock()
+        SqsModule.Config config = new SqsModule.Config()
+        config.awsAccessKey = 'access-key'
+        config.awsSecretKey = 'secret-key'
+        config.region = 'us-east-1'
+        config.endpoint = 'http://localhost:9000'
+        config.enabled = true
+
+        DefaultSqsService service = new DefaultSqsService(config, sqsConfigService)
+
+        when:
+        service.onStart(startEvent)
+
+        then:
+        1 * sqs.setEndpoint(config.endpoint)
     }
 
     void 'it should delete a message'() {
