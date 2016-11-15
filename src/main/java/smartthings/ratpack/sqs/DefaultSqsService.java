@@ -14,6 +14,8 @@ import ratpack.service.StartEvent;
 import ratpack.service.StopEvent;
 import smartthings.ratpack.sqs.config.SqsConfigService;
 
+import java.util.Optional;
+
 /**
  * Default implementation for communicating with AWS SQS.
  */
@@ -35,7 +37,8 @@ public class DefaultSqsService implements SqsService {
     @Override
     public void onStart(StartEvent event) throws Exception {
         if (config.isEnabled()) {
-            this.sqs = sqsConfigService.getAmazonSQSAsync(config.getRegion());
+            sqs = sqsConfigService.getAmazonSQSAsync(config.getRegion());
+            Optional.ofNullable(config.getEndpoint()).ifPresent(sqs::setEndpoint);
         }
     }
 

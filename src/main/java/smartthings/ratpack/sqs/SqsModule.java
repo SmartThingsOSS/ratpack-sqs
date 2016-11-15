@@ -31,6 +31,7 @@ public class SqsModule extends ConfigurableModule<SqsModule.Config> {
         private Regions region;
         private String awsSecretKey;
         private String awsAccessKey;
+        private String endpoint;
 
         public boolean isEnabled() {
             return enabled;
@@ -63,5 +64,14 @@ public class SqsModule extends ConfigurableModule<SqsModule.Config> {
         public void setAwsAccessKey(String awsAccessKey) {
             this.awsAccessKey = awsAccessKey;
         }
+
+        public String getEndpoint() {
+            return endpoint;
+        }
+
+        public void setEndpoint(String endpoint) {
+            this.endpoint = endpoint;
+        }
+
     }
 }
