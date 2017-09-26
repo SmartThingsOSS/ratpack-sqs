@@ -1,0 +1,12 @@
+Local:
+  Host: localhost
+  Port: 4100
+  LogMessages: true
+  LogFile: ./goaws_messages.log
+  Queues:
+    - Name: functional_test_queue
+  Topics:
+    - Name: functional_test_queue
+      Subscriptions:
+        - QueueName: functional_test_queue
+          Raw: false
