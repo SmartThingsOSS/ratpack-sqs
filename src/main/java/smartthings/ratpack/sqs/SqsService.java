@@ -7,7 +7,7 @@ import ratpack.service.Service;
 /**
  * Supported AWS SQS operations.
  */
-public interface SqsService extends Service {
+public interface SqsService {
 
     Promise<DeleteMessageResult> deleteMessage(DeleteMessageRequest request);
 

@@ -1,17 +1,29 @@
 machine:
+  pre:
+    - curl -sSL https://s3.amazonaws.com/circle-downloads/install-circleci-docker.sh | bash -s -- 1.10.0
+  services:
+    - docker
   java:
-    version:
-      oraclejdk8
+    version: oraclejdk8
+  python:
+    version: 2.7.10
 
 dependencies:
   override:
-    - sudo pip install codecov
+    - pip install --upgrade pip
+    - pip install --upgrade docker-compose==1.16.1
+    - pip uninstall -y docker-py || true
+    - pip uninstall -y docker || true
+    - pip install docker || true
+    - pip install codecov
     - ./gradlew classes testClasses
 
   cache_directories:
     - ~/.gradle
 
 test:
+  pre:
+    - docker-compose up -d
   override:
     - ./gradlew check jacocoTestReport
 

@@ -42,13 +42,26 @@ compileJava {
 dependencies {
     compile "io.ratpack:ratpack-core:${ratpackVersion}"
     compile "io.ratpack:ratpack-guice:${ratpackVersion}"
-    compile "io.ratpack:ratpack-rx:${ratpackVersion}"
-    compile "com.amazonaws:aws-java-sdk-sqs:1.11.19"
+    compile "com.amazonaws:aws-java-sdk-sqs:1.11.184"
+    compile "com.amazonaws:aws-java-sdk-sns:1.11.184"
+    compile "com.amazonaws:aws-java-sdk-sts:1.11.184"
+    compile('io.github.resilience4j:resilience4j-ratpack:0.10.0')
+    compile('io.github.resilience4j:resilience4j-circuitbreaker:0.10.0')
+    compile('io.github.resilience4j:resilience4j-metrics:0.10.0')
+    compile('io.github.resilience4j:resilience4j-prometheus:0.10.0')
     compile 'com.google.code.findbugs:jsr305:3.0.0'
 
+    testCompile 'org.objenesis:objenesis:2.6'
     testCompile 'org.spockframework:spock-core:1.0-groovy-2.4'
     testCompile "io.ratpack:ratpack-groovy-test:${ratpackVersion}"
     testCompile 'cglib:cglib-nodep:3.2.4'
     testRuntime "org.slf4j:slf4j-api:${slf4jVersion}"
     testRuntime 'ch.qos.logback:logback-classic:1.1.7'
 }
+
+test {
+    if (project.hasProperty('awsEndpointUrl')) {
+        systemProperty 'awsEndpointUrl', awsEndpointUrl
+    }
+}
+
