@@ -33,11 +33,14 @@ public class SqsManager implements Service {
     @Override
     public void onStart(StartEvent event) throws Exception {
         if (config.isEnabled()) {
+            LOG.debug("Starting up SqsManager...");
             config.getConsumers().stream()
                 .filter(SqsModule.ConsumerConfig::isEnabled)
                 .map(SqsModule.ConsumerConfig::getEndpoints)
                 .flatMap(Collection::stream)
                 .forEach(this::create);
+        } else {
+            LOG.debug("Skipping start up of SqsManager...");
         }
     }
 
@@ -58,6 +61,7 @@ public class SqsManager implements Service {
             throw new IllegalArgumentException("Consumer endpoint config requires a valid configured AWS Region.");
         }
         String cacheKey = getCacheKey(config);
+        LOG.debug("Creating SqsService for endpoint={}", cacheKey);
         if (sqsMap.containsKey(cacheKey)) {
             return sqsMap.get(cacheKey);
         }

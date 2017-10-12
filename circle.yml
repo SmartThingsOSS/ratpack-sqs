@@ -16,10 +16,7 @@ dependencies:
     - pip uninstall -y docker || true
     - pip install docker || true
     - pip install codecov
-    - ./gradlew classes testClasses
-
-  cache_directories:
-    - ~/.gradle
+    - mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
 
 test:
   pre:
