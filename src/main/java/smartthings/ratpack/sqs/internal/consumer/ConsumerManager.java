@@ -3,6 +3,8 @@ package smartthings.ratpack.sqs.internal.consumer;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ratpack.exec.Execution;
 import ratpack.service.DependsOn;
 import ratpack.service.Service;
@@ -22,6 +24,8 @@ import java.util.stream.Stream;
 @DependsOn({SqsManager.class})
 public class ConsumerManager implements Service {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ConsumerManager.class);
+
     private final SqsModule.Config config;
     private final SqsManager sqsManager;
     private List<ConsumerAction> actions = new ArrayList<>();
@@ -36,12 +40,16 @@ public class ConsumerManager implements Service {
     @Override
     public void onStart(StartEvent event) throws Exception {
         if (config.isEnabled()) {
+            LOG.debug("Starting up SQS ConsumerManager...");
             init(event);
+        } else {
+            LOG.debug("Skipping start up of SQS ConsumerManager...");
         }
     }
 
     @Override
     public void onStop(StopEvent event) throws Exception {
+        LOG.debug("Shutting down SQS ConsumerManager...");
         actions.forEach(ConsumerAction::shutdown);
     }
 
@@ -72,8 +80,11 @@ public class ConsumerManager implements Service {
             .flatMap(endpoints ->
                 config.getEndpoints().stream()
                     .map(endpointConfig -> {
-                        CircuitBreaker breaker = CircuitBreaker.ofDefaults(
-                            String.format("sqs-%s", endpointConfig.getQueueName())
+                        final String consumerKey = String.format("sqs-%s", endpointConfig.getQueueName());
+                        CircuitBreaker breaker = CircuitBreaker.ofDefaults(consumerKey);
+                        LOG.debug(
+                            "Creating an SQS Consumer for class={}, queue={}",
+                            config.getConsumer().getSimpleName(), consumerKey
                         );
                         breakers.add(breaker);
                         return new ConsumerAction(
