@@ -25,6 +25,11 @@ public class SqsModule extends ConfigurableModule<SqsModule.Config> {
 
         OptionalBinder.newOptionalBinder(binder(), AmazonSQSProvider.class)
             .setDefault().to(DefaultAmazonSQSProvider.class);
+        
+        OptionalBinder.newOptionalBinder(binder(), SqsService.class)
+            .setDefault()
+            .to(DefaultSqsService.class);
+        
     }
 
     /**
