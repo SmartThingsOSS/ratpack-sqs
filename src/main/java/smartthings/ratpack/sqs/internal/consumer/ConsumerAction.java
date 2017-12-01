@@ -58,17 +58,19 @@ public class ConsumerAction implements Action<Execution> {
     @Override
     public void execute(Execution execution) throws Exception {
         start()
-            .result(r -> {
-                Throwable error = r.getThrowable();
-                if (error != null && error instanceof ShutdownConsumerException) {
+        .result(r -> {
+            Throwable error = r.getThrowable();
+            if (error == null) {
+                Execution.fork().start(this);
+            } else {
+                if (error instanceof ShutdownConsumerException) {
                     log.warn("SQS consumer={} is shutting down.", config.getQueueName());
-                } else if (error != null) {
-                    log.error("Unexpected exception consumer={} terminated.", config.getQueueName(), error);
                 } else {
-                    log.error("SQS consumer={} terminated unexpectedly.", config.getQueueName());
+                    log.error("Unexpected exception consumer={} terminated.", config.getQueueName(), error);
                 }
                 notifyShutdown();
-            });
+            }
+        });
     }
 
     public void shutdown() {
@@ -95,8 +97,7 @@ public class ConsumerAction implements Action<Execution> {
             .flatMap(v -> this.getReceiveMessageRequest())
             .flatMap(this::receiveMessage)
             .flatMap(this::consume)
-            .flatMap(v -> this.maybeTriggerShutdown())
-            .flatMap(v -> this.poll());
+            .flatMap(v -> this.maybeTriggerShutdown());
     }
 
     private Promise<String> getQueueUrl() {
