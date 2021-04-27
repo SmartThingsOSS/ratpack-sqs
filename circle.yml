@@ -10,19 +10,19 @@ machine:
 
 dependencies:
   override:
-    - pip install --upgrade pip
-    - pip install --upgrade docker-compose==1.16.1
-    - pip uninstall -y docker-py || true
-    - pip uninstall -y docker || true
-    - pip install docker || true
-    - pip install codecov
-    - mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
+      - pip install --upgrade pip
+      - pip install --upgrade docker-compose
+      - pip uninstall -y docker-py || true
+      - pip uninstall -y docker || true
+      - pip install docker || true
+      - pip install codecov
+      - mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
 
 test:
   pre:
     - docker-compose up -d
   override:
-    - ./gradlew check jacocoTestReport
+    - ./gradlew check jacocoTestReport -PsmartThingsArtifactoryUserName=$ARTIFACTORY_USERNAME -PsmartThingsArtifactoryPassword=$ARTIFACTORY_PASSWORD
 
   post:
     - 'find . -type f -name "*.xml" | grep "build/test-results" | xargs cp -t $CIRCLE_TEST_REPORTS/'
@@ -38,4 +38,4 @@ deployment:
   release:
     branch: release
     commands:
-      - ./gradlew bintrayUpload
+      - ./gradlew publish -PsmartThingsArtifactoryUserName=$ARTIFACTORY_USERNAME -PsmartThingsArtifactoryPassword=$ARTIFACTORY_PASSWORD

@@ -1,0 +1,141 @@
+defaults: &defaults
+  working_directory: ~/repo
+  docker:
+    - image: circleci/openjdk:8-jdk-browsers
+  environment:
+    GRADLE_USER_HOME: ~/repo/.gradle
+
+version: 2
+jobs:
+  build:
+    <<: *defaults
+
+    steps:
+      - restore_cache:
+          keys:
+            # when lock file changes, use increasingly general patterns to restore cache
+            - repo-v1-{{ .Branch }}-{{ .Revision}}
+            - repo-v1-{{ .Branch }}-
+            - repo-v1-
+
+      - checkout
+
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - ./*
+
+
+  test:
+    working_directory: ~/repo
+    docker:
+      - image: circleci/openjdk:8-jdk-browsers
+        environment:
+          PUBLICHOST: goaws
+          AWS_ENDPOINT_URL: "http://goaws:4100"
+          GRADLE_USER_HOME: ~/repo/.gradle
+      - image: pafortin/goaws:1.0.1
+        environment:
+          PUBLICHOST: goaws
+        name: goaws
+    steps:
+      - attach_workspace:
+          at: ~/repo
+#      - run:
+#          command: sudo apt-get update && sudo apt-get upgrade && sudo apt-get install -y python-pip
+#      - run:
+#          command: sudo pip install --upgrade pip
+#      - run:
+#          command: sudo pip uninstall docker docker-compose
+#      - run:
+#          command: sudo pip uninstall -y docker-py || true
+#      - run:
+#          command: sudo pip uninstall -y docker || true
+#      - run:
+#          command: sudo apt-get install docker
+#      - run:
+#          command: sudo apt-get install docker-compose
+#      - run:
+#          command: sudo pip install codecov
+      - run:
+          command: mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
+#      - run:
+#          command: sudo docker-compose up -d
+      - run:
+          name: Gradle Check and Coverage
+          command: ./gradlew check jacocoTestReport -PsmartThingsArtifactoryUserName=$ARTIFACTORY_USERNAME -PsmartThingsArtifactoryPassword=$ARTIFACTORY_PASSWORD -PawsEndpointUrl=$AWS_ENDPOINT_URL
+
+      - run:
+          name: Codecov
+          command: bash <(curl -s https://codecov.io/bash)
+
+      - run:
+          name: Files
+          command: find . -type f -name "*.xml" | grep "build/test-results"
+
+      - run:
+          name: Test Results Folder
+          command: mkdir ~/test-results
+
+      - run:
+          name: Copy Test Results
+          command: find . -type f -name "*.xml" | grep "build/test-results" | xargs cp -t ~/test-results/
+
+      - store_test_results:
+          path: ~/test-results
+
+      - save_cache:
+          paths:
+            - ~/repo
+          key: repo-v1-{{ .Branch }}-{{ .Revision }}
+
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - ./*
+
+  release_snapshot:
+    <<: *defaults
+
+    steps:
+      - attach_workspace:
+          at: ~/repo
+
+      - run:
+          name: Publish Snapshot
+          command: ./gradlew publish -PsmartThingsArtifactoryUserName=$ARTIFACTORY_USERNAME -PsmartThingsArtifactoryPassword=$ARTIFACTORY_PASSWORD
+
+  release:
+    <<: *defaults
+
+    steps:
+      - attach_workspace:
+          at: ~/repo
+
+      - run:
+          name: Release to Artifactory
+          command: ./gradlew publish -PsmartThingsArtifactoryUserName=$ARTIFACTORY_USERNAME -PsmartThingsArtifactoryPassword  =$ARTIFACTORY_PASSWORD
+
+workflows:
+  version: 2
+
+  main:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
+      - release_snapshot:
+          context: smartthingsoss
+          requires:
+            - test
+          filters:
+            branches:
+              only: master
+      - release:
+          context: smartthingsoss
+          requires:
+            - test
+          filters:
+            branches:
+              only: release
