@@ -24,14 +24,11 @@ jobs:
           root: ~/repo
           paths:
             - ./*
-
-
   test:
     working_directory: ~/repo
     docker:
       - image: circleci/openjdk:8-jdk-browsers
         environment:
-          PUBLICHOST: goaws
           AWS_ENDPOINT_URL: "http://goaws:4100"
           GRADLE_USER_HOME: ~/repo/.gradle
       - image: pafortin/goaws:1.0.1
@@ -41,30 +38,19 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/repo
-#      - run:
-#          command: sudo apt-get update && sudo apt-get upgrade && sudo apt-get install -y python-pip
-#      - run:
-#          command: sudo pip install --upgrade pip
-#      - run:
-#          command: sudo pip uninstall docker docker-compose
-#      - run:
-#          command: sudo pip uninstall -y docker-py || true
-#      - run:
-#          command: sudo pip uninstall -y docker || true
-#      - run:
-#          command: sudo apt-get install docker
-#      - run:
-#          command: sudo apt-get install docker-compose
-#      - run:
-#          command: sudo pip install codecov
       - run:
           command: mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
-#      - run:
-#          command: sudo docker-compose up -d
+      - run: |
+         sudo apt-get update
+         sudo apt-get -y install libatomic1 python-pip
+         pip install boto3
+         mkdir ~/.aws
+         cp ./etc/circleci/credentials ~/.aws
+      - run: python ./etc/circleci/goaws.py --endpoint-url="http://goaws:4100"
       - run:
           name: Gradle Check and Coverage
-          command: ./gradlew check jacocoTestReport -PsmartThingsArtifactoryUserName=$ARTIFACTORY_USERNAME -PsmartThingsArtifactoryPassword=$ARTIFACTORY_PASSWORD -PawsEndpointUrl=$AWS_ENDPOINT_URL
-
+          command: ./gradlew check jacocoTestReport -PsmartThingsUserName=$ARTIFACTORY_USERNAME -PsmartThingsPassword=$ARTIFACTORY_PASSWORD -PawsEndpointUrl=$AWS_ENDPOINT_URL
+          no_output_timeout: 3m
       - run:
           name: Codecov
           command: bash <(curl -s https://codecov.io/bash)
@@ -103,7 +89,7 @@ jobs:
 
       - run:
           name: Publish Snapshot
-          command: ./gradlew publish -PsmartThingsArtifactoryUserName=$ARTIFACTORY_USERNAME -PsmartThingsArtifactoryPassword=$ARTIFACTORY_PASSWORD
+          command: ./gradlew publish -PsmartThingsUserName=$ARTIFACTORY_USERNAME -PsmartThingsPassword=$ARTIFACTORY_PASSWORD
 
   release:
     <<: *defaults
@@ -114,7 +100,7 @@ jobs:
 
       - run:
           name: Release to Artifactory
-          command: ./gradlew publish -PsmartThingsArtifactoryUserName=$ARTIFACTORY_USERNAME -PsmartThingsArtifactoryPassword  =$ARTIFACTORY_PASSWORD
+          command: ./gradlew publish -PsmartThingsUserName=$ARTIFACTORY_USERNAME -PsmartThingsPassword  =$ARTIFACTORY_PASSWORD
 
 workflows:
   version: 2

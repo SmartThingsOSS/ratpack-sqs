@@ -16,7 +16,6 @@ if (jvmEncoding != "UTF-8") {
 
 if (!JavaVersion.current().java8Compatible) {
     throw new IllegalStateException("Must be built with Java 8 or higher")
-    throw new IllegalStateException("Must be built with Java 8 or higher")
 }
 
 group 'smartthings'

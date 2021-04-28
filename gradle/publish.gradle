@@ -28,8 +28,8 @@ publishing {
 	repositories {
 		maven {
 			credentials {
-				username smartThingsArtifactoryUserName
-				password smartThingsArtifactoryPassword
+				username smartThingsUserName
+				password smartThingsPassword
 				if (isSnapshot) {
 					url "https://smartthingsoss.jfrog.io/artifactory/libs-snapshot-local"
 				} else {
