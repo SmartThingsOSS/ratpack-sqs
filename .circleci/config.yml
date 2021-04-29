@@ -100,7 +100,7 @@ jobs:
 
       - run:
           name: Release to Artifactory
-          command: ./gradlew publish -PsmartThingsUserName=$ARTIFACTORY_USERNAME -PsmartThingsPassword  =$ARTIFACTORY_PASSWORD
+          command: ./gradlew publish -PsmartThingsUserName=$ARTIFACTORY_USERNAME -PsmartThingsPassword=$ARTIFACTORY_PASSWORD
 
 workflows:
   version: 2
