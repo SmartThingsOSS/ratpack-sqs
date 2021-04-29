@@ -5,7 +5,6 @@ buildscript {
 
     dependencies {
         classpath 'com.github.ben-manes:gradle-versions-plugin:0.12.0'
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.6'
     }
 }
 
@@ -26,6 +25,7 @@ apply plugin: "base"
 apply plugin: 'groovy'
 apply plugin: 'idea'
 apply plugin: 'com.github.ben-manes.versions'
+apply plugin: 'maven-publish'
 apply from: rootProject.file('gradle/publish.gradle')
 apply from: rootProject.file('gradle/convention.gradle')
 
