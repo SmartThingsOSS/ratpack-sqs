@@ -42,7 +42,7 @@ jobs:
           command: mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
       - run: |
          sudo apt-get update
-         sudo apt-get -y install libatomic1 python-pip
+         sudo apt-get -y install libatomic1 python3-pip
          pip install boto3
          mkdir ~/.aws
          cp ./etc/circleci/credentials ~/.aws
