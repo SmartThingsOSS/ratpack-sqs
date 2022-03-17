@@ -1,7 +1,7 @@
 defaults: &defaults
   working_directory: ~/repo
   docker:
-    - image: circleci/openjdk:8-jdk-browsers
+    - image: cimg/openjdk:11.0.13-browsers
   environment:
     GRADLE_USER_HOME: ~/repo/.gradle
 
@@ -27,7 +27,7 @@ jobs:
   test:
     working_directory: ~/repo
     docker:
-      - image: circleci/openjdk:8-jdk-browsers
+      - image: cimg/openjdk:11.0.13-browsers
         environment:
           AWS_ENDPOINT_URL: "http://goaws:4100"
           GRADLE_USER_HOME: ~/repo/.gradle
