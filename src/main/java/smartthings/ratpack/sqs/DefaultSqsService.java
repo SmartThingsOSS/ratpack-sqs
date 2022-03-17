@@ -1,13 +1,13 @@
 package smartthings.ratpack.sqs;
 
-import com.amazonaws.services.sqs.AmazonSQS;
-import com.amazonaws.services.sqs.model.*;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import ratpack.exec.Blocking;
 import ratpack.exec.Promise;
 import ratpack.service.Service;
 import ratpack.service.StopEvent;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.*;
 
 /**
  * Default implementation for communicating with AWS SQS.
@@ -15,35 +15,38 @@ import ratpack.service.StopEvent;
 @Singleton
 public class DefaultSqsService implements SqsService, Service {
 
-    private final AmazonSQS sqs;
+    private final SqsClient sqs;
 
     @Inject
-    public DefaultSqsService(AmazonSQS sqs) {
+    public DefaultSqsService(SqsClient sqs) {
         this.sqs = sqs;
     }
 
     @Override
     public void onStop(StopEvent event) throws Exception {
-        sqs.shutdown();
+        sqs.close();
     }
 
     @Override
-    public Promise<DeleteMessageResult> deleteMessage(DeleteMessageRequest request) {
+    public Promise<DeleteMessageResponse> deleteMessage(DeleteMessageRequest request) {
         return Blocking.get(() -> sqs.deleteMessage(request));
     }
 
     @Override
-    public Promise<SendMessageResult> sendMessage(SendMessageRequest request) {
+    public Promise<SendMessageResponse> sendMessage(SendMessageRequest request) {
         return Blocking.get(() -> sqs.sendMessage(request));
     }
 
     @Override
-    public Promise<ReceiveMessageResult> receiveMessage(ReceiveMessageRequest request) {
+    public Promise<ReceiveMessageResponse> receiveMessage(ReceiveMessageRequest request) {
         return Blocking.get(() -> sqs.receiveMessage(request));
     }
 
     @Override
-    public Promise<GetQueueUrlResult> getQueueUrl(String queueName) {
-        return Blocking.get(() -> sqs.getQueueUrl(queueName));
+    public Promise<GetQueueUrlResponse> getQueueUrl(String queueName) {
+        GetQueueUrlRequest request = GetQueueUrlRequest.builder()
+            .queueName(queueName)
+            .build();
+        return Blocking.get(() -> sqs.getQueueUrl(request));
     }
 }

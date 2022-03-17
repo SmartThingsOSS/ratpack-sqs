@@ -1,6 +1,7 @@
 buildscript {
     repositories {
-        jcenter()
+        gradlePluginPortal()
+        mavenCentral()
     }
 
     dependencies {
@@ -8,6 +9,9 @@ buildscript {
     }
 }
 
+plugins {
+    id "com.github.spotbugs" version "5.0.6" apply false
+}
 
 def jvmEncoding = java.nio.charset.Charset.defaultCharset().name()
 if (jvmEncoding != "UTF-8") {
@@ -21,7 +25,8 @@ if (!JavaVersion.current().java8Compatible) {
 group 'smartthings'
 version = rootProject.file('version.txt').text.trim()
 
-apply plugin: "base"
+apply plugin: 'base'
+apply plugin: 'java-library'
 apply plugin: 'groovy'
 apply plugin: 'idea'
 apply plugin: 'com.github.ben-manes.versions'
@@ -31,7 +36,7 @@ apply from: rootProject.file('gradle/convention.gradle')
 
 repositories {
     mavenLocal()
-    jcenter()
+    mavenCentral()
 }
 
 compileJava {
@@ -40,23 +45,24 @@ compileJava {
 
 // In this section you declare the dependencies for your production and test code
 dependencies {
-    compile "io.ratpack:ratpack-core:${ratpackVersion}"
-    compile "io.ratpack:ratpack-guice:${ratpackVersion}"
-    compile "com.amazonaws:aws-java-sdk-sqs:1.11.184"
-    compile "com.amazonaws:aws-java-sdk-sns:1.11.184"
-    compile "com.amazonaws:aws-java-sdk-sts:1.11.184"
-    compile('io.github.resilience4j:resilience4j-ratpack:0.10.0')
-    compile('io.github.resilience4j:resilience4j-circuitbreaker:0.10.0')
-    compile('io.github.resilience4j:resilience4j-metrics:0.10.0')
-    compile('io.github.resilience4j:resilience4j-prometheus:0.10.0')
-    compile 'com.google.code.findbugs:jsr305:3.0.0'
+    implementation "io.ratpack:ratpack-core:${ratpackVersion}"
+    implementation "io.ratpack:ratpack-guice:${ratpackVersion}"
+    implementation "io.github.resilience4j:resilience4j-ratpack:0.10.0"
+    implementation "io.github.resilience4j:resilience4j-circuitbreaker:0.10.0"
+    implementation "io.github.resilience4j:resilience4j-metrics:0.10.0"
+    implementation "io.github.resilience4j:resilience4j-prometheus:0.10.0"
+    implementation platform("software.amazon.awssdk:bom:${awsSdkV2Version}")
+    api "software.amazon.awssdk:sqs"
+    implementation "software.amazon.awssdk:sns"
+    implementation "software.amazon.awssdk:sts"
+    implementation "software.amazon.awssdk:auth"
 
-    testCompile 'org.objenesis:objenesis:2.6'
-    testCompile 'org.spockframework:spock-core:1.0-groovy-2.4'
-    testCompile "io.ratpack:ratpack-groovy-test:${ratpackVersion}"
-    testCompile 'cglib:cglib-nodep:3.2.4'
-    testRuntime "org.slf4j:slf4j-api:${slf4jVersion}"
-    testRuntime 'ch.qos.logback:logback-classic:1.1.7'
+    testImplementation "org.objenesis:objenesis:2.6"
+    testImplementation "org.spockframework:spock-core:1.0-groovy-2.4"
+    testImplementation "io.ratpack:ratpack-groovy-test:${ratpackVersion}"
+    testImplementation "cglib:cglib-nodep:3.2.4"
+    testRuntimeOnly "org.slf4j:slf4j-api:${slf4jVersion}"
+    testRuntimeOnly "ch.qos.logback:logback-classic:1.1.7"
 }
 
 test {

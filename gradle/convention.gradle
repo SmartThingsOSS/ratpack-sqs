@@ -1,19 +1,18 @@
-apply plugin: 'findbugs'
+apply plugin: "com.github.spotbugs"
 apply plugin: "pmd"
 apply plugin: "checkstyle"
 apply plugin: "jacoco"
 
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
+sourceCompatibility = '1.11'
+targetCompatibility = '1.11'
 
-findbugs {
-    toolVersion = "3.0.1"
+spotbugs {
+    toolVersion = "4.6.0"
     ignoreFailures = false
     effort = "max"
     reportLevel = "low"
-    excludeFilter = file("$rootProject.projectDir/gradle/findbugs/excludeFilter.xml")
-    sourceSets = [sourceSets.main]
-    reportsDir = file("$project.buildDir/coverage/findbugs")
+    excludeFilter = file("$rootProject.projectDir/gradle/spotbugs/excludeFilter.xml")
+    reportsDir = file("$project.buildDir/coverage/spotbugs")
 }
 
 checkstyle {
@@ -23,22 +22,24 @@ checkstyle {
 
 pmd {
     ignoreFailures = false
+    ruleSetFiles = files("$rootProject.projectDir/gradle/pmd/customRuleset.xml")
+    ruleSets = []
     reportsDir = file("$project.buildDir/coverage/pmd")
 }
 
-tasks.withType(FindBugs) {
+spotbugsMain {
     reports {
         xml.enabled = false
         html.enabled = true
     }
 }
 
+spotbugsTest {
+    enabled = false
+}
+
 jacocoTestReport {
     reports {
         xml.enabled true
     }
-}
-
-task wrapper(type: Wrapper) {
-    gradleVersion = "4.2"
 }

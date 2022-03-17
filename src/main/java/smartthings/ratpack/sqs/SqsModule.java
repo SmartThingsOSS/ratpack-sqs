@@ -5,10 +5,12 @@ import io.github.resilience4j.ratpack.Resilience4jModule;
 import ratpack.guice.ConfigurableModule;
 import smartthings.ratpack.sqs.internal.consumer.ConsumerManager;
 import smartthings.ratpack.sqs.internal.consumer.SqsManager;
-import smartthings.ratpack.sqs.internal.providers.DefaultAmazonSQSProvider;
+import smartthings.ratpack.sqs.internal.providers.DefaultSQSClientProvider;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import static java.util.Collections.unmodifiableList;
 
 
 /**
@@ -23,8 +25,8 @@ public class SqsModule extends ConfigurableModule<SqsModule.Config> {
         bind(SqsManager.class).asEagerSingleton();
         bind(ConsumerManager.class).asEagerSingleton();
 
-        OptionalBinder.newOptionalBinder(binder(), AmazonSQSProvider.class)
-            .setDefault().to(DefaultAmazonSQSProvider.class);
+        OptionalBinder.newOptionalBinder(binder(), SQSClientProvider.class)
+            .setDefault().to(DefaultSQSClientProvider.class);
     }
 
     /**
@@ -43,7 +45,7 @@ public class SqsModule extends ConfigurableModule<SqsModule.Config> {
         }
 
         public List<ConsumerConfig> getConsumers() {
-            return consumers;
+            return unmodifiableList(consumers);
         }
 
         public void setConsumers(List<ConsumerConfig> consumers) {
@@ -85,7 +87,7 @@ public class SqsModule extends ConfigurableModule<SqsModule.Config> {
         }
 
         public List<EndpointConfig> getEndpoints() {
-            return endpoints;
+            return unmodifiableList(endpoints);
         }
 
         public void setEndpoints(List<EndpointConfig> endpoints) {
@@ -120,6 +122,10 @@ public class SqsModule extends ConfigurableModule<SqsModule.Config> {
 
         public void setRegionName(String regionName) {
             this.regionName = regionName;
+        }
+
+        public Optional<String> regionName() {
+            return Optional.ofNullable(regionName);
         }
 
         public String getEndpoint() {
