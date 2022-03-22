@@ -1,6 +1,5 @@
 package smartthings.ratpack.sns;
 
-import com.amazonaws.regions.Regions;
 import com.google.inject.multibindings.OptionalBinder;
 import ratpack.guice.ConfigurableModule;
 import smartthings.ratpack.sns.internal.DefaultSnsService;
@@ -8,6 +7,8 @@ import smartthings.ratpack.sns.internal.providers.DefaultAmazonSNSProvider;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import static java.util.Collections.unmodifiableList;
 
 public class SnsModule extends ConfigurableModule<SnsModule.Config> {
 
@@ -35,7 +36,7 @@ public class SnsModule extends ConfigurableModule<SnsModule.Config> {
         }
 
         public List<EndpointConfig> getEndpoints() {
-            return endpoints;
+            return unmodifiableList(endpoints);
         }
 
         public void setEndpoints(List<EndpointConfig> endpoints) {
@@ -53,6 +54,10 @@ public class SnsModule extends ConfigurableModule<SnsModule.Config> {
 
         public void setRegionName(String regionName) {
             this.regionName = regionName;
+        }
+
+        public Optional<String> regionName() {
+            return Optional.ofNullable(regionName);
         }
 
         public String getEndpoint() {

@@ -1,11 +1,8 @@
 package smartthings.ratpack.sqs
 
-import com.amazonaws.regions.Regions
-import com.amazonaws.services.sns.model.PublishRequest
-import com.amazonaws.services.sqs.model.Message
+
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
-import ratpack.exec.Blocking
 import ratpack.func.Action
 import ratpack.guice.Guice
 import ratpack.handling.Context
@@ -17,6 +14,8 @@ import smartthings.ratpack.aws.AwsModule
 import smartthings.ratpack.sns.SnsModule
 import smartthings.ratpack.sns.SnsService
 import smartthings.ratpack.sqs.internal.consumer.ConsumerManager
+import software.amazon.awssdk.services.sns.model.PublishRequest
+import software.amazon.awssdk.services.sqs.model.Message
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.util.concurrent.PollingConditions
@@ -82,11 +81,10 @@ class ConsumerFunctionalSpec extends Specification {
                     void handle(Context ctx, ObjectMapper objectMapper, SnsService sns) throws Exception {
                         ctx.parse(TestMessage)
                             .flatMap({ request ->
-                                sns.publish(
-                                    new PublishRequest(
-                                        topicArn,
-                                        objectMapper.writeValueAsString(request)
-                                    )
+                                sns.publish(PublishRequest.builder()
+                                        .topicArn(topicArn)
+                                        .message(objectMapper.writeValueAsString(request))
+                                        .build()
                                 )
                             })
                             .onError(ctx.&error)
@@ -244,7 +242,7 @@ class TestConsumer implements Consumer {
 
     @Override
     void consume(Message message) throws Exception {
-        Map body = mapper.readValue(message.body, new TypeReference<Map<String, Object>>() {})
+        Map body = mapper.readValue(message.body(), new TypeReference<Map<String, Object>>() {})
         TestMessage testMessage = mapper.readValue(body['Message'] as String, TestMessage)
         if (messages.containsKey(testMessage)) {
             messages.get(testMessage).incrementAndGet()

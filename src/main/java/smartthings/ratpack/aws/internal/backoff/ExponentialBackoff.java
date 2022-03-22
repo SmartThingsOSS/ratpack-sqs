@@ -32,6 +32,6 @@ public class ExponentialBackoff {
 
     private long waitTime() {
         final long wait = Math.round(Math.pow(2, attempts)) * 1000;
-        return wait >= MAX_WAIT ? MAX_WAIT : wait;
+        return Math.min(wait, MAX_WAIT);
     }
 }
