@@ -1,29 +1,24 @@
 package smartthings.ratpack.sqs.internal.services
 
-import com.amazonaws.services.sqs.AmazonSQS
-import com.amazonaws.services.sqs.model.DeleteMessageRequest
-import com.amazonaws.services.sqs.model.DeleteMessageResult
-import com.amazonaws.services.sqs.model.GetQueueUrlResult
-import com.amazonaws.services.sqs.model.ReceiveMessageRequest
-import com.amazonaws.services.sqs.model.ReceiveMessageResult
-import com.amazonaws.services.sqs.model.SendMessageRequest
-import com.amazonaws.services.sqs.model.SendMessageResult
 import ratpack.test.exec.ExecHarness
+import smartthings.ratpack.sqs.DefaultSqsService
+import software.amazon.awssdk.services.sqs.SqsClient
+import software.amazon.awssdk.services.sqs.model.*
 import spock.lang.AutoCleanup
 import spock.lang.Specification
 
 class DefaultSqsServiceSpec extends Specification {
 
-    AmazonSQS sqs = Mock(AmazonSQS)
+    SqsClient sqs = Mock(SqsClient)
 
     @AutoCleanup
     ExecHarness harness = ExecHarness.harness()
 
     void 'it should delete a message'() {
         given:
-        smartthings.ratpack.sqs.DefaultSqsService service = new smartthings.ratpack.sqs.DefaultSqsService(sqs)
-        DeleteMessageRequest request = new DeleteMessageRequest()
-        DeleteMessageResult response = new DeleteMessageResult()
+        DefaultSqsService service = new DefaultSqsService(sqs)
+        DeleteMessageRequest request = DeleteMessageRequest.builder().build()
+        DeleteMessageResponse response = DeleteMessageResponse.builder().build()
 
         when:
         def result = harness.yieldSingle{ e ->
@@ -40,9 +35,9 @@ class DefaultSqsServiceSpec extends Specification {
 
     void 'it should send a message'() {
         given:
-        smartthings.ratpack.sqs.DefaultSqsService service = new smartthings.ratpack.sqs.DefaultSqsService(sqs)
-        SendMessageRequest request = new SendMessageRequest()
-        SendMessageResult response = new SendMessageResult()
+        DefaultSqsService service = new DefaultSqsService(sqs)
+        SendMessageRequest request = SendMessageRequest.builder().build()
+        SendMessageResponse response = SendMessageResponse.builder().build()
 
         when:
         def result = harness.yieldSingle{ e ->
@@ -59,9 +54,9 @@ class DefaultSqsServiceSpec extends Specification {
 
     void 'it should receive a message'() {
         given:
-        smartthings.ratpack.sqs.DefaultSqsService service = new smartthings.ratpack.sqs.DefaultSqsService(sqs)
-        ReceiveMessageRequest request = new ReceiveMessageRequest()
-        ReceiveMessageResult response = new ReceiveMessageResult()
+        DefaultSqsService service = new DefaultSqsService(sqs)
+        ReceiveMessageRequest request = ReceiveMessageRequest.builder().build()
+        ReceiveMessageResponse response = ReceiveMessageResponse.builder().build()
 
         when:
         def result = harness.yieldSingle{ e ->
@@ -78,9 +73,9 @@ class DefaultSqsServiceSpec extends Specification {
 
     void 'it should get a queue url'() {
         given:
-        smartthings.ratpack.sqs.DefaultSqsService service = new smartthings.ratpack.sqs.DefaultSqsService(sqs)
+        DefaultSqsService service = new DefaultSqsService(sqs)
         String queueName = 'mars-10'
-        GetQueueUrlResult response = new GetQueueUrlResult()
+        GetQueueUrlResponse response = GetQueueUrlResponse.builder().build()
 
         when:
         def result = harness.yieldSingle{ e ->
@@ -88,7 +83,9 @@ class DefaultSqsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * sqs.getQueueUrl(queueName) >> response
+        1 * sqs.getQueueUrl({request ->
+            request.queueName() == queueName
+        } as GetQueueUrlRequest) >> response
         0 * _
 
         and:

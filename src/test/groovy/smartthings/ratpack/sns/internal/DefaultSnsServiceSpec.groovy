@@ -1,20 +1,20 @@
 package smartthings.ratpack.sns.internal
 
-import com.amazonaws.AmazonServiceException
-import com.amazonaws.AmazonWebServiceRequest
-import com.amazonaws.ResponseMetadata
-import com.amazonaws.services.sns.*
-import com.amazonaws.services.sns.model.*
 import ratpack.test.exec.ExecHarness
 import smartthings.ratpack.sns.AmazonSNSProvider
 import smartthings.ratpack.sns.SnsModule
 import smartthings.ratpack.sns.SnsService
+import software.amazon.awssdk.awscore.exception.AwsServiceException
+import software.amazon.awssdk.services.sns.SnsClient
+import software.amazon.awssdk.services.sns.model.*
 import spock.lang.AutoCleanup
+import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Unroll
 
 class DefaultSnsServiceSpec extends Specification {
 
+    @Shared
     @AutoCleanup
     ExecHarness harness = ExecHarness.harness()
 
@@ -35,15 +35,15 @@ class DefaultSnsServiceSpec extends Specification {
             )
         ]
     )
-    AmazonSNS client1 = Mock(AmazonSNS)
-    AmazonSNS client2 = Mock(AmazonSNS)
-    AmazonSNS client3 = Mock(AmazonSNS)
+    SnsClient client1 = Mock(SnsClient)
+    SnsClient client2 = Mock(SnsClient)
+    SnsClient client3 = Mock(SnsClient)
     AmazonSNSProvider provider = Mock(AmazonSNSProvider) {
         1 * get(config.endpoints.get(0)) >> client1
         1 * get(config.endpoints.get(1)) >> client2
         1 * get(config.endpoints.get(2)) >> client3
     }
-    SnsService service
+    DefaultSnsService service
 
     void setup() {
         service = new DefaultSnsService(config, provider)
@@ -51,8 +51,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should create a topic'() {
         given:
-        def request = new CreateTopicRequest()
-        def result = new CreateTopicResult()
+        def request = CreateTopicRequest.builder().build()
+        def result = CreateTopicResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -68,8 +68,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should subscribe'() {
         given:
-        def request = new SubscribeRequest()
-        def result = new SubscribeResult()
+        def request = SubscribeRequest.builder().build()
+        def result = SubscribeResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -85,8 +85,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should publish'() {
         given:
-        def request = new PublishRequest()
-        def result = new PublishResult()
+        def request = PublishRequest.builder().build()
+        def result = PublishResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -102,8 +102,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should delete a topic'() {
         given:
-        def request = new DeleteTopicRequest()
-        def result = new DeleteTopicResult()
+        def request = DeleteTopicRequest.builder().build()
+        def result = DeleteTopicResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -119,8 +119,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should add permission'() {
         given:
-        def request = new AddPermissionRequest()
-        def result = new AddPermissionResult()
+        def request = AddPermissionRequest.builder().build()
+        def result = AddPermissionResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -140,7 +140,7 @@ class DefaultSnsServiceSpec extends Specification {
         String label = 'label'
         List<String> accountIds = []
         List<String> actionNames = []
-        def result = new AddPermissionResult()
+        def result = AddPermissionResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -148,7 +148,12 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.addPermission(topicArn, label, accountIds, actionNames) >> result
+        1 * client1.addPermission( { request ->
+            request.topicArn() == topicArn
+            request.label() == label
+            request.awsAccountIds() == accountIds
+            request.actionNames() == actionNames
+        } as AddPermissionRequest) >> result
         0 * _
 
         assert response == result
@@ -156,8 +161,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should check if phone number is opted out'() {
         given:
-        def request = new CheckIfPhoneNumberIsOptedOutRequest()
-        def result = new CheckIfPhoneNumberIsOptedOutResult()
+        def request = CheckIfPhoneNumberIsOptedOutRequest.builder().build()
+        def result = CheckIfPhoneNumberIsOptedOutResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -173,8 +178,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should confirm subscription'() {
         given:
-        def request = new ConfirmSubscriptionRequest()
-        def result = new ConfirmSubscriptionResult()
+        def request = ConfirmSubscriptionRequest.builder().build()
+        def result = ConfirmSubscriptionResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -193,7 +198,7 @@ class DefaultSnsServiceSpec extends Specification {
         String topicArn = 'arn'
         String token = 'token'
         String authenticateOnUnsubscribe = 'auth'
-        def result = new ConfirmSubscriptionResult()
+        def result = ConfirmSubscriptionResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -201,7 +206,11 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.confirmSubscription(topicArn, token, authenticateOnUnsubscribe) >> result
+        1 * client1.confirmSubscription({ request ->
+                request.topicArn() == topicArn
+                request.token() == token
+                request.authenticateOnUnsubscribe() == authenticateOnUnsubscribe
+            } as ConfirmSubscriptionRequest) >> result
         0 * _
 
         assert response == result
@@ -211,7 +220,7 @@ class DefaultSnsServiceSpec extends Specification {
         given:
         String topicArn = 'arn'
         String token = 'token'
-        def result = new ConfirmSubscriptionResult()
+        def result = ConfirmSubscriptionResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -219,7 +228,10 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.confirmSubscription(topicArn, token) >> result
+        1 * client1.confirmSubscription({ request ->
+            request.topicArn() == topicArn
+            request.token() == token
+        } as ConfirmSubscriptionRequest) >> result
         0 * _
 
         assert response == result
@@ -227,8 +239,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should create platform application'() {
         given:
-        def request = new CreatePlatformApplicationRequest()
-        def result = new CreatePlatformApplicationResult()
+        def request = CreatePlatformApplicationRequest.builder().build()
+        def result = CreatePlatformApplicationResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -244,8 +256,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should create platform endpoint'() {
         given:
-        def request = new CreatePlatformEndpointRequest()
-        def result = new CreatePlatformEndpointResult()
+        def request = CreatePlatformEndpointRequest.builder().build()
+        def result = CreatePlatformEndpointResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -262,7 +274,7 @@ class DefaultSnsServiceSpec extends Specification {
     void 'it should create topic'() {
         given:
         String name = 'name'
-        def result = new CreateTopicResult()
+        def result = CreateTopicResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -270,7 +282,9 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.createTopic(name) >> result
+        1 * client1.createTopic({ request ->
+            request.name() == name
+        } as CreateTopicRequest) >> result
         0 * _
 
         assert response == result
@@ -278,8 +292,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should delete an endpoint'() {
         given:
-        def request = new DeleteEndpointRequest()
-        def result = new DeleteEndpointResult()
+        def request = DeleteEndpointRequest.builder().build()
+        def result = DeleteEndpointResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -295,8 +309,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should delete a platform application'() {
         given:
-        def request = new DeletePlatformApplicationRequest()
-        def result = new DeletePlatformApplicationResult()
+        def request = DeletePlatformApplicationRequest.builder().build()
+        def result = DeletePlatformApplicationResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -313,7 +327,7 @@ class DefaultSnsServiceSpec extends Specification {
     void 'it should delete a topic simplified'() {
         given:
         String topicArn = 'arn'
-        def result = new DeleteTopicResult()
+        def result = DeleteTopicResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -321,7 +335,9 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.deleteTopic(topicArn) >> result
+        1 * client1.deleteTopic({ request ->
+            request.topicArn() == topicArn
+        } as DeleteTopicRequest) >> result
         0 * _
 
         assert response == result
@@ -329,8 +345,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should get endpoint attributes'() {
         given:
-        def request = new GetEndpointAttributesRequest()
-        def result = new GetEndpointAttributesResult()
+        def request = GetEndpointAttributesRequest.builder().build()
+        def result = GetEndpointAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -346,8 +362,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should get platform application attributes'() {
         given:
-        def request = new GetPlatformApplicationAttributesRequest()
-        def result = new GetPlatformApplicationAttributesResult()
+        def request = GetPlatformApplicationAttributesRequest.builder().build()
+        def result = GetPlatformApplicationAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -363,8 +379,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should get sms attributes'() {
         given:
-        def request = new GetSMSAttributesRequest()
-        def result = new GetSMSAttributesResult()
+        def request = GetSmsAttributesRequest.builder().build()
+        def result = GetSmsAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -380,8 +396,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should get subscription attributes'() {
         given:
-        def request = new GetSubscriptionAttributesRequest()
-        def result = new GetSubscriptionAttributesResult()
+        def request = GetSubscriptionAttributesRequest.builder().build()
+        def result = GetSubscriptionAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -398,7 +414,7 @@ class DefaultSnsServiceSpec extends Specification {
     void 'it should get subscription attributes simplified'() {
         given:
         String subscriptionArn = 'arn'
-        def result = new GetSubscriptionAttributesResult()
+        def result = GetSubscriptionAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -406,7 +422,9 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.getSubscriptionAttributes(subscriptionArn) >> result
+        1 * client1.getSubscriptionAttributes({ request ->
+            request.subscriptionArn() == subscriptionArn
+        } as GetSubscriptionAttributesRequest) >> result
         0 * _
 
         assert response == result
@@ -414,8 +432,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should get topic attributes'() {
         given:
-        def request = new GetTopicAttributesRequest()
-        def result = new GetTopicAttributesResult()
+        def request = GetTopicAttributesRequest.builder().build()
+        def result = GetTopicAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -432,7 +450,7 @@ class DefaultSnsServiceSpec extends Specification {
     void 'it should get topic attributes simplified'() {
         given:
         String topicArn = 'arn'
-        def result = new GetTopicAttributesResult()
+        def result = GetTopicAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -440,7 +458,9 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.getTopicAttributes(topicArn) >> result
+        1 * client1.getTopicAttributes({ request ->
+            request.topicArn() == topicArn
+        } as GetTopicAttributesRequest) >> result
         0 * _
 
         assert response == result
@@ -448,8 +468,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should list endpoints by platform application'() {
         given:
-        def request = new ListEndpointsByPlatformApplicationRequest()
-        def result = new ListEndpointsByPlatformApplicationResult()
+        def request = ListEndpointsByPlatformApplicationRequest.builder().build()
+        def result = ListEndpointsByPlatformApplicationResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -465,8 +485,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should list phone number opted out'() {
         given:
-        def request = new ListPhoneNumbersOptedOutRequest()
-        def result = new ListPhoneNumbersOptedOutResult()
+        def request = ListPhoneNumbersOptedOutRequest.builder().build()
+        def result = ListPhoneNumbersOptedOutResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -482,8 +502,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should list platform applications'() {
         given:
-        def request = new ListPlatformApplicationsRequest()
-        def result = new ListPlatformApplicationsResult()
+        def request = ListPlatformApplicationsRequest.builder().build()
+        def result = ListPlatformApplicationsResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -499,7 +519,7 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should list platform applications simplified'() {
         given:
-        def result = new ListPlatformApplicationsResult()
+        def result = ListPlatformApplicationsResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -515,8 +535,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should list subscriptions'() {
         given:
-        def request = new ListSubscriptionsRequest()
-        def result = new ListSubscriptionsResult()
+        def request = ListSubscriptionsRequest.builder().build()
+        def result = ListSubscriptionsResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -532,7 +552,7 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should list subscriptions simplified #1'() {
         given:
-        def result = new ListSubscriptionsResult()
+        def result = ListSubscriptionsResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -549,7 +569,7 @@ class DefaultSnsServiceSpec extends Specification {
     void 'it should list subscriptions simplified #2'() {
         given:
         String nextToken = 'next'
-        def result = new ListSubscriptionsResult()
+        def result = ListSubscriptionsResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -557,7 +577,9 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.listSubscriptions(nextToken) >> result
+        1 * client1.listSubscriptions({ request ->
+            request.nextToken() == nextToken
+        } as ListSubscriptionsRequest) >> result
         0 * _
 
         assert response == result
@@ -565,8 +587,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should list subscriptions by topic'() {
         given:
-        def request = new ListSubscriptionsByTopicRequest()
-        def result = new ListSubscriptionsByTopicResult()
+        def request = ListSubscriptionsByTopicRequest.builder().build()
+        def result = ListSubscriptionsByTopicResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -583,7 +605,7 @@ class DefaultSnsServiceSpec extends Specification {
     void 'it should list subscriptions by topic simplified #1'() {
         given:
         String topicArn = 'arn'
-        def result = new ListSubscriptionsByTopicResult()
+        def result = ListSubscriptionsByTopicResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -591,7 +613,9 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.listSubscriptionsByTopic(topicArn) >> result
+        1 * client1.listSubscriptionsByTopic({ request ->
+            request.topicArn() == topicArn
+        } as ListSubscriptionsByTopicRequest) >> result
         0 * _
 
         assert response == result
@@ -601,7 +625,7 @@ class DefaultSnsServiceSpec extends Specification {
         given:
         String topicArn = 'arn'
         String nextToken = 'next'
-        def result = new ListSubscriptionsByTopicResult()
+        def result = ListSubscriptionsByTopicResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -609,7 +633,10 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.listSubscriptionsByTopic(topicArn, nextToken) >> result
+        1 * client1.listSubscriptionsByTopic({ request ->
+            request.topicArn() == topicArn
+            request.nextToken() == nextToken
+        } as ListSubscriptionsByTopicRequest) >> result
         0 * _
 
         assert response == result
@@ -617,8 +644,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should list topics'() {
         given:
-        def request = new ListTopicsRequest()
-        def result = new ListTopicsResult()
+        def request = ListTopicsRequest.builder().build()
+        def result = ListTopicsResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -634,7 +661,7 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should list topics simplified #1'() {
         given:
-        def result = new ListTopicsResult()
+        def result = ListTopicsResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -651,7 +678,7 @@ class DefaultSnsServiceSpec extends Specification {
     void 'it should list topics simplified #2'() {
         given:
         String nextToken = 'next'
-        def result = new ListTopicsResult()
+        def result = ListTopicsResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -659,7 +686,9 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.listTopics(nextToken) >> result
+        1 * client1.listTopics({ request ->
+            request.nextToken() == nextToken
+        } as ListTopicsRequest) >> result
         0 * _
 
         assert response == result
@@ -667,8 +696,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should set opt in phone number'() {
         given:
-        def request = new OptInPhoneNumberRequest()
-        def result = new OptInPhoneNumberResult()
+        def request = OptInPhoneNumberRequest.builder().build()
+        def result = OptInPhoneNumberResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -686,7 +715,7 @@ class DefaultSnsServiceSpec extends Specification {
         given:
         String topicArn = 'arn'
         String message = 'message'
-        def result = new PublishResult()
+        def result = PublishResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -694,7 +723,10 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.publish(topicArn, message) >> result
+        1 * client1.publish({ request ->
+            request.topicArn() == topicArn
+            request.message() == message
+        } as PublishRequest) >> result
         0 * _
 
         assert response == result
@@ -705,7 +737,7 @@ class DefaultSnsServiceSpec extends Specification {
         String topicArn = 'arn'
         String message = 'message'
         String subject = 'subject'
-        def result = new PublishResult()
+        def result = PublishResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -713,7 +745,11 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.publish(topicArn, message, subject) >> result
+        1 * client1.publish({ request ->
+            request.topicArn() == topicArn
+            request.message() == message
+            request.subject() == subject
+        } as PublishRequest) >> result
         0 * _
 
         assert response == result
@@ -721,8 +757,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should remove permission'() {
         given:
-        def request = new RemovePermissionRequest()
-        def result = new RemovePermissionResult()
+        def request = RemovePermissionRequest.builder().build()
+        def result = RemovePermissionResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -740,7 +776,7 @@ class DefaultSnsServiceSpec extends Specification {
         given:
         String topicArn = 'arn'
         String label = 'label'
-        def result = new RemovePermissionResult()
+        def result = RemovePermissionResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -748,7 +784,10 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.removePermission(topicArn, label) >> result
+        1 * client1.removePermission({ request ->
+            request.topicArn() == topicArn
+            request.label() == label
+        } as RemovePermissionRequest) >> result
         0 * _
 
         assert response == result
@@ -756,8 +795,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should set endpoint attributes'() {
         given:
-        def request = new SetEndpointAttributesRequest()
-        def result = new SetEndpointAttributesResult()
+        def request = SetEndpointAttributesRequest.builder().build()
+        def result = SetEndpointAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -773,8 +812,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should set platform application attributes'() {
         given:
-        def request = new SetPlatformApplicationAttributesRequest()
-        def result = new SetPlatformApplicationAttributesResult()
+        def request = SetPlatformApplicationAttributesRequest.builder().build()
+        def result = SetPlatformApplicationAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -790,8 +829,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should set sms attributes'() {
         given:
-        def request = new SetSMSAttributesRequest()
-        def result = new SetSMSAttributesResult()
+        def request = SetSmsAttributesRequest.builder().build()
+        def result = SetSmsAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -807,8 +846,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should set subscription attributes'() {
         given:
-        def request = new SetSubscriptionAttributesRequest()
-        def result = new SetSubscriptionAttributesResult()
+        def request = SetSubscriptionAttributesRequest.builder().build()
+        def result = SetSubscriptionAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -827,7 +866,7 @@ class DefaultSnsServiceSpec extends Specification {
         String subscriptionArn = 'arn'
         String attributeName = 'attr'
         String attributeValue = 'value'
-        def result = new SetSubscriptionAttributesResult()
+        def result = SetSubscriptionAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -835,7 +874,11 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.setSubscriptionAttributes(subscriptionArn, attributeName, attributeValue) >> result
+        1 * client1.setSubscriptionAttributes({ request ->
+            request.subscriptionArn() == subscriptionArn
+            request.attributeName() == attributeName
+            request.attributeValue() == attributeValue
+        } as SetSubscriptionAttributesRequest) >> result
         0 * _
 
         assert response == result
@@ -843,8 +886,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should set topic attributes'() {
         given:
-        def request = new SetTopicAttributesRequest()
-        def result = new SetTopicAttributesResult()
+        def request = SetTopicAttributesRequest.builder().build()
+        def result = SetTopicAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -863,7 +906,7 @@ class DefaultSnsServiceSpec extends Specification {
         String topicArn = 'arn'
         String attributeName = 'attr'
         String attributeValue = 'value'
-        def result = new SetTopicAttributesResult()
+        def result = SetTopicAttributesResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -871,7 +914,11 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.setTopicAttributes(topicArn, attributeName, attributeValue) >> result
+        1 * client1.setTopicAttributes({ request ->
+            request.topicArn() == topicArn
+            request.attributeName() == attributeName
+            request.attributeValue() == attributeValue
+        } as SetTopicAttributesRequest) >> result
         0 * _
 
         assert response == result
@@ -882,7 +929,7 @@ class DefaultSnsServiceSpec extends Specification {
         String topicArn = 'arn'
         String protocol = 'protocol'
         String endpoint = 'endpoint'
-        def result = new SubscribeResult()
+        def result = SubscribeResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -890,7 +937,11 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.subscribe(topicArn, protocol, endpoint) >> result
+        1 * client1.subscribe({ request ->
+            request.topicArn() == topicArn
+            request.protocol() == protocol
+            request.endpoint() == endpoint
+        } as SubscribeRequest) >> result
         0 * _
 
         assert response == result
@@ -898,8 +949,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should unsubscribe'() {
         given:
-        def request = new UnsubscribeRequest()
-        def result = new UnsubscribeResult()
+        def request = UnsubscribeRequest.builder().build()
+        def result = UnsubscribeResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -916,7 +967,7 @@ class DefaultSnsServiceSpec extends Specification {
     void 'it should unsubscribe simplified #1'() {
         given:
         String subscriptionArn = 'arn'
-        def result = new UnsubscribeResult()
+        def result = UnsubscribeResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -924,24 +975,9 @@ class DefaultSnsServiceSpec extends Specification {
         }.value
 
         then:
-        1 * client1.unsubscribe(subscriptionArn) >> result
-        0 * _
-
-        assert response == result
-    }
-
-    void 'it should get cached response metadata'() {
-        given:
-        def request = AmazonWebServiceRequest.NOOP
-        def result = new ResponseMetadata([:])
-
-        when:
-        def response = harness.yieldSingle{ e ->
-            service.getCachedResponseMetadata(request)
-        }.value
-
-        then:
-        1 * client1.getCachedResponseMetadata(request) >> result
+        1 * client1.unsubscribe({ request ->
+            request.subscriptionArn() == subscriptionArn
+        } as UnsubscribeRequest) >> result
         0 * _
 
         assert response == result
@@ -949,8 +985,8 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should failover and publish'() {
         given:
-        def request = new PublishRequest()
-        def result = new PublishResult()
+        def request = PublishRequest.builder().build()
+        def result = PublishResponse.builder().build()
 
         when:
         def response = harness.yieldSingle{ e ->
@@ -1002,7 +1038,7 @@ class DefaultSnsServiceSpec extends Specification {
 
     void 'it should skip failover when only 1 client'() {
         setup:
-        AmazonSNS testClient = Mock(AmazonSNS)
+        SnsClient testClient = Mock(SnsClient)
         SnsModule.Config testConfig = new SnsModule.Config(
             enabled: true,
             endpoints: [
@@ -1041,8 +1077,10 @@ class DefaultSnsServiceSpec extends Specification {
     @Unroll
     void 'it should detect a #statusCode from AWS service'() {
         given:
-        AmazonServiceException ase = new AmazonServiceException('oops')
-        ase.statusCode = statusCode
+        AwsServiceException ase = AwsServiceException.builder()
+            .message('oops')
+            .statusCode(statusCode)
+            .build()
 
         when:
         boolean result = service.isAwsServiceError(ase)
@@ -1068,9 +1106,9 @@ class DefaultSnsServiceSpec extends Specification {
         service.shutdown()
 
         then:
-        1 * client1.shutdown()
-        1 * client2.shutdown()
-        1 * client3.shutdown()
+        1 * client1.close()
+        1 * client2.close()
+        1 * client3.close()
         0 * _
     }
 }

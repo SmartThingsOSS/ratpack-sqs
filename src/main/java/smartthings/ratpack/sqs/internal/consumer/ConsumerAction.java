@@ -1,6 +1,5 @@
 package smartthings.ratpack.sqs.internal.consumer;
 
-import com.amazonaws.services.sqs.model.*;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.ratpack.circuitbreaker.CircuitBreakerTransformer;
 import org.slf4j.Logger;
@@ -16,6 +15,8 @@ import smartthings.ratpack.sqs.Consumer;
 import smartthings.ratpack.sqs.SqsModule;
 import smartthings.ratpack.sqs.SqsService;
 import smartthings.ratpack.sqs.internal.exception.ShutdownConsumerException;
+import software.amazon.awssdk.services.sqs.model.*;
+
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -31,11 +32,12 @@ public class ConsumerAction implements Action<Execution> {
     private final Consumer consumer;
     private final SqsModule.EndpointConfig config;
     private String sqsQueueUrl;
-    private AtomicBoolean shutdown = new AtomicBoolean(false);
     private final CircuitBreaker breaker;
     private final CircuitBreakerTransformer transformer;
     private final ExponentialBackoff backoff = new ExponentialBackoff();
     private final Object mutex = new Object();
+    private AtomicBoolean shuttingDown = new AtomicBoolean(false);
+    private AtomicBoolean shutdownComplete = new AtomicBoolean(false);
 
     public ConsumerAction(
         SqsService sqs,
@@ -74,7 +76,7 @@ public class ConsumerAction implements Action<Execution> {
     }
 
     public void shutdown() {
-        this.shutdown.set(true);
+        this.shuttingDown.set(true);
         awaitShutdown()
             .then(() ->
                 log.warn("SQS consumer={} shutdown complete.", config.getQueueName())
@@ -111,14 +113,11 @@ public class ConsumerAction implements Action<Execution> {
         }
 
         return sqs.getQueueUrl(queueName)
-            .map((result) -> {
-                sqsQueueUrl = result.getQueueUrl();
-                return sqsQueueUrl;
-            });
+            .map(GetQueueUrlResponse::queueUrl);
     }
 
-    private Promise<Void> consume(ReceiveMessageResult result) {
-        List<Promise<Void>> promises = result.getMessages().stream()
+    private Promise<Void> consume(ReceiveMessageResponse result) {
+        List<Promise<Void>> promises = result.messages().stream()
             .map(this::consume)
             .collect(Collectors.toList());
 
@@ -131,41 +130,42 @@ public class ConsumerAction implements Action<Execution> {
         return Operation.of(() -> consumer.consume(message))
             .promise()
             .mapError(e -> {
-                log.error("Failed to consume message.  message={}", message, e);
+                log.error("Failed to consume message. message={}, exception={}", message, e.getMessage());
                 throw new RuntimeException(e);
             })
             .flatMap(v -> this.deleteMessage(message));
     }
 
     @SuppressWarnings("unchecked")
-    private Promise<ReceiveMessageResult> receiveMessage(ReceiveMessageRequest request) {
+    private Promise<ReceiveMessageResponse> receiveMessage(ReceiveMessageRequest request) {
         log.debug("Execute poll for SQS queue={}", config.getQueueName());
         return sqs.receiveMessage(request)
-            .transform(transformer.recover(t -> new ReceiveMessageResult()));
+            .transform(transformer.recover(t -> ReceiveMessageResponse.builder().build()));
     }
 
     @SuppressWarnings("unchecked")
     private Promise<Void> deleteMessage(Message message) {
         return getQueueUrl()
-            .map(url -> new DeleteMessageRequest(url, message.getReceiptHandle()))
+            .map(url -> DeleteMessageRequest.builder()
+                .queueUrl(url)
+                .receiptHandle(message.receiptHandle())
+                .build())
             .flatMap(sqs::deleteMessage)
-            .transform(transformer.recover(t -> new DeleteMessageResult()));
+            .transform(transformer.recover(t -> DeleteMessageResponse.builder().build()));
     }
 
     private Promise<ReceiveMessageRequest> getReceiveMessageRequest() {
         ReceiveMessageRequest request = consumer.getReceiveMessageRequest();
-        if (request.getQueueUrl() == null || request.getQueueUrl().isEmpty()) {
+
+        if (request.queueUrl() == null || request.queueUrl().isEmpty()) {
             return getQueueUrl()
-                .map((url) -> {
-                   request.withQueueUrl(url);
-                   return request;
-                });
+                .map((url) -> request.toBuilder().queueUrl(url).build());
         }
         return Promise.value(request);
     }
 
     private Promise<Void> maybeTriggerShutdown() {
-        if (this.shutdown.get()) {
+        if (this.shuttingDown.get()) {
             return Promise.error(new ShutdownConsumerException());
         }
         return Promise.value(null);
@@ -186,7 +186,9 @@ public class ConsumerAction implements Action<Execution> {
         return Blocking.op(() -> {
             synchronized (mutex) {
                 try {
-                    mutex.wait();
+                    while (!shutdownComplete.get()) {
+                        mutex.wait(500);
+                    }
                 } catch (InterruptedException e) {
                     //Intentionally left blank
                 }
@@ -195,6 +197,7 @@ public class ConsumerAction implements Action<Execution> {
     }
 
     private void notifyShutdown() {
+        shutdownComplete.set(true);
         synchronized (mutex) {
             mutex.notifyAll();
         }

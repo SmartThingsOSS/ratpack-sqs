@@ -1,18 +1,22 @@
 package smartthings.ratpack.aws.internal.providers;
 
-import com.amazonaws.auth.*;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.securitytoken.AWSSecurityTokenService;
-import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
 import smartthings.ratpack.aws.AwsModule;
+import software.amazon.awssdk.auth.credentials.*;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.StsClientBuilder;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
+
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
 @Singleton
-public class DefaultAWSCredentialsProvider implements Provider<AWSCredentialsProvider> {
+public class DefaultAWSCredentialsProvider implements Provider<AwsCredentialsProvider> {
 
     private final AwsModule.Config config;
 
@@ -22,37 +26,44 @@ public class DefaultAWSCredentialsProvider implements Provider<AWSCredentialsPro
     }
 
     @Override
-    public AWSCredentialsProvider get() {
+    public AwsCredentialsProvider get() {
 
-        List<AWSCredentialsProvider> providers = new ArrayList<>();
+        List<AwsCredentialsProvider> providers = new ArrayList<>();
         if (!isNullOrEmpty(config.getAwsAccessKey()) && !isNullOrEmpty(config.getAwsSecretKey())) {
             providers.add(new BasicAWSCredentialsProvider(config.getAwsAccessKey(), config.getAwsSecretKey()));
         }
-        providers.add(new DefaultAWSCredentialsProviderChain());
+        providers.add(DefaultCredentialsProvider.create());
+
+        AwsCredentialsProviderChain providerChain = AwsCredentialsProviderChain.of(
+            providers.toArray(new AwsCredentialsProvider[0])
+        );
 
         if (!isNullOrEmpty(config.getStsRoleArn())) {
-            final AWSSecurityTokenService sts = securityTokenService(new AWSCredentialsProviderChain(providers));
+            final StsClient sts = getStsClient(providerChain);
 
-            return new STSAssumeRoleSessionCredentialsProvider.Builder(config.getStsRoleArn(), "ratpack-sqs")
-                .withStsClient(sts)
+            AssumeRoleRequest request = AssumeRoleRequest.builder()
+                .roleArn(config.getStsRoleArn())
+                .roleSessionName("ratpack-sqs")
+                .build();
+
+            return StsAssumeRoleCredentialsProvider.builder()
+                .stsClient(sts)
+                .refreshRequest(request)
                 .build();
         }
 
-        return new AWSCredentialsProviderChain(
-            providers.toArray(new AWSCredentialsProvider[providers.size()])
-        );
+        return providerChain;
     }
 
-    private AWSSecurityTokenService securityTokenService(AWSCredentialsProvider credentialsProvider) {
-        AWSSecurityTokenServiceClientBuilder builder = AWSSecurityTokenServiceClientBuilder.standard()
-            .withCredentials(credentialsProvider);
+    private StsClient getStsClient(AwsCredentialsProvider credentialsProvider) {
+         StsClientBuilder builder = StsClient.builder()
+             .credentialsProvider(credentialsProvider);
 
         if (config.stsEndpoint().isPresent()) {
-            builder.withEndpointConfiguration(
-                new AwsClientBuilder.EndpointConfiguration(config.getStsEndpoint(), config.getStsRegionName())
-            );
-        } else {
-            builder.withRegion(config.getStsRegionName());
+            builder.endpointOverride(URI.create(config.getStsEndpoint()));
+        }
+        if (config.stsRegionName().isPresent()) {
+            builder.region(Region.of(config.getStsRegionName()));
         }
 
         return builder.build();
@@ -62,10 +73,10 @@ public class DefaultAWSCredentialsProvider implements Provider<AWSCredentialsPro
         return (value == null || value.equals(""));
     }
 
-    private static class BasicAWSCredentialsProvider implements AWSCredentialsProvider {
+    private static class BasicAWSCredentialsProvider implements AwsCredentialsProvider {
 
-        private String accessKey;
-        private String secretKey;
+        private final String accessKey;
+        private final String secretKey;
 
         BasicAWSCredentialsProvider(String accessKey, String secretKey) {
             this.accessKey = accessKey;
@@ -73,13 +84,8 @@ public class DefaultAWSCredentialsProvider implements Provider<AWSCredentialsPro
         }
 
         @Override
-        public AWSCredentials getCredentials() {
-            return new BasicAWSCredentials(accessKey, secretKey);
-        }
-
-        @Override
-        public void refresh() {
-
+        public AwsCredentials resolveCredentials() {
+            return AwsBasicCredentials.create(accessKey, secretKey);
         }
     }
 }

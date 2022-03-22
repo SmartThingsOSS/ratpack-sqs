@@ -1,7 +1,7 @@
 defaults: &defaults
   working_directory: ~/repo
   docker:
-    - image: circleci/openjdk:8-jdk-browsers
+    - image: cimg/openjdk:11.0.13-browsers
   environment:
     GRADLE_USER_HOME: ~/repo/.gradle
 
@@ -27,7 +27,7 @@ jobs:
   test:
     working_directory: ~/repo
     docker:
-      - image: circleci/openjdk:8-jdk-browsers
+      - image: cimg/openjdk:11.0.13-browsers
         environment:
           AWS_ENDPOINT_URL: "http://goaws:4100"
           GRADLE_USER_HOME: ~/repo/.gradle
@@ -42,11 +42,11 @@ jobs:
           command: mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
       - run: |
          sudo apt-get update
-         sudo apt-get -y install libatomic1 python-pip
+         sudo apt-get -y install libatomic1 python3 python3-pip
          pip install boto3
          mkdir ~/.aws
          cp ./etc/circleci/credentials ~/.aws
-      - run: python ./etc/circleci/goaws.py --endpoint-url="http://goaws:4100"
+      - run: python3 ./etc/circleci/goaws.py --endpoint-url="http://goaws:4100"
       - run:
           name: Gradle Check and Coverage
           command: ./gradlew check jacocoTestReport -PsmartThingsUserName=$ARTIFACTORY_USERNAME -PsmartThingsPassword=$ARTIFACTORY_PASSWORD -PawsEndpointUrl=$AWS_ENDPOINT_URL

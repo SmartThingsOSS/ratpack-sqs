@@ -1,9 +1,9 @@
 package smartthings.ratpack.aws;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.google.inject.multibindings.OptionalBinder;
 import ratpack.guice.ConfigurableModule;
 import smartthings.ratpack.aws.internal.providers.DefaultAWSCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 import java.util.Optional;
 
@@ -14,7 +14,7 @@ public class AwsModule extends ConfigurableModule<AwsModule.Config> {
 
     @Override
     protected void configure() {
-        OptionalBinder.newOptionalBinder(binder(), AWSCredentialsProvider.class)
+        OptionalBinder.newOptionalBinder(binder(), AwsCredentialsProvider.class)
             .setDefault()
             .toProvider(DefaultAWSCredentialsProvider.class);
     }
@@ -56,6 +56,10 @@ public class AwsModule extends ConfigurableModule<AwsModule.Config> {
 
         public String getStsRegionName() {
             return stsRegionName;
+        }
+
+        public Optional<String> stsRegionName() {
+            return Optional.ofNullable(stsRegionName);
         }
 
         public void setStsRegionName(String stsRegionName) {

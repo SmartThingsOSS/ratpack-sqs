@@ -1,10 +1,5 @@
 package smartthings.ratpack.sns.internal;
 
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.AmazonWebServiceRequest;
-import com.amazonaws.ResponseMetadata;
-import com.amazonaws.services.sns.AmazonSNS;
-import com.amazonaws.services.sns.model.*;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
@@ -19,6 +14,10 @@ import ratpack.service.StopEvent;
 import smartthings.ratpack.sns.AmazonSNSProvider;
 import smartthings.ratpack.sns.SnsModule;
 import smartthings.ratpack.sns.SnsService;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sns.model.*;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -31,8 +30,8 @@ public class DefaultSnsService implements SnsService {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultSnsService.class);
 
     private final SnsModule.Config config;
-    private final List<AmazonSNS> clients;
-    private final AtomicReference<AmazonSNS> activeClient = new AtomicReference<>();
+    private final List<SnsClient> clients;
+    private final AtomicReference<SnsClient> activeClient = new AtomicReference<>();
     private final CircuitBreakerTransformer breaker;
     private final LongAdder pos = new LongAdder();
 
@@ -61,7 +60,7 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<CreateTopicResult> createTopic(CreateTopicRequest request) {
+    public Promise<CreateTopicResponse> createTopic(CreateTopicRequest request) {
         LOG.trace("creating sns topic request={}", request);
         return Blocking.get(() -> sns().createTopic(request))
             .transform(breaker);
@@ -69,7 +68,7 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<SubscribeResult> subscribe(SubscribeRequest request) {
+    public Promise<SubscribeResponse> subscribe(SubscribeRequest request) {
         LOG.trace("subscribing to sns topic request={}", request);
         return Blocking.get(() -> sns().subscribe(request))
             .transform(breaker);
@@ -77,7 +76,7 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<PublishResult> publish(PublishRequest request) {
+    public Promise<PublishResponse> publish(PublishRequest request) {
         LOG.trace("publishing to sns topic request={}", request);
         return Blocking.get(() -> sns().publish(request))
             .transform(breaker);
@@ -85,7 +84,7 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<DeleteTopicResult> deleteTopic(DeleteTopicRequest request) {
+    public Promise<DeleteTopicResponse> deleteTopic(DeleteTopicRequest request) {
         LOG.debug("deleting sns topic request={}", request);
         return Blocking.get(() -> sns().deleteTopic(request))
             .transform(breaker);
@@ -93,26 +92,32 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<AddPermissionResult> addPermission(AddPermissionRequest request) {
+    public Promise<AddPermissionResponse> addPermission(AddPermissionRequest request) {
         return Blocking.get(() -> sns().addPermission(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<AddPermissionResult> addPermission(
+    public Promise<AddPermissionResponse> addPermission(
         String topicArn,
         String label,
-        List<String> aWSAccountIds,
+        List<String> awsAccountIds,
         List<String> actionNames
     ) {
-        return Blocking.get(() -> sns().addPermission(topicArn, label, actionNames, actionNames))
+        AddPermissionRequest request = AddPermissionRequest.builder()
+            .topicArn(topicArn)
+            .label(label)
+            .awsAccountIds(awsAccountIds)
+            .actionNames(actionNames)
+            .build();
+        return Blocking.get(() -> sns().addPermission(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<CheckIfPhoneNumberIsOptedOutResult> checkIfPhoneNumberIsOptedOut(
+    public Promise<CheckIfPhoneNumberIsOptedOutResponse> checkIfPhoneNumberIsOptedOut(
         CheckIfPhoneNumberIsOptedOutRequest request
     ) {
         return Blocking.get(() -> sns().checkIfPhoneNumberIsOptedOut(request))
@@ -121,32 +126,41 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ConfirmSubscriptionResult> confirmSubscription(ConfirmSubscriptionRequest request) {
+    public Promise<ConfirmSubscriptionResponse> confirmSubscription(ConfirmSubscriptionRequest request) {
         return Blocking.get(() -> sns().confirmSubscription(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ConfirmSubscriptionResult> confirmSubscription(
+    public Promise<ConfirmSubscriptionResponse> confirmSubscription(
         String topicArn,
         String token,
         String authenticateOnUnsubscribe
     ) {
-        return Blocking.get(() -> sns().confirmSubscription(topicArn, token, authenticateOnUnsubscribe))
+        ConfirmSubscriptionRequest request = ConfirmSubscriptionRequest.builder()
+            .topicArn(topicArn)
+            .token(token)
+            .authenticateOnUnsubscribe(authenticateOnUnsubscribe)
+            .build();
+        return Blocking.get(() -> sns().confirmSubscription(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ConfirmSubscriptionResult> confirmSubscription(String topicArn, String token) {
-        return Blocking.get(() -> sns().confirmSubscription(topicArn, token))
+    public Promise<ConfirmSubscriptionResponse> confirmSubscription(String topicArn, String token) {
+        ConfirmSubscriptionRequest request = ConfirmSubscriptionRequest.builder()
+            .topicArn(topicArn)
+            .token(token)
+            .build();
+        return Blocking.get(() -> sns().confirmSubscription(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<CreatePlatformApplicationResult> createPlatformApplication(
+    public Promise<CreatePlatformApplicationResponse> createPlatformApplication(
         CreatePlatformApplicationRequest request
     ) {
         return Blocking.get(() -> sns().createPlatformApplication(request))
@@ -155,28 +169,31 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<CreatePlatformEndpointResult> createPlatformEndpoint(CreatePlatformEndpointRequest request) {
+    public Promise<CreatePlatformEndpointResponse> createPlatformEndpoint(CreatePlatformEndpointRequest request) {
         return Blocking.get(() -> sns().createPlatformEndpoint(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<CreateTopicResult> createTopic(String name) {
-        return Blocking.get(() -> sns().createTopic(name))
+    public Promise<CreateTopicResponse> createTopic(String name) {
+        CreateTopicRequest request = CreateTopicRequest.builder()
+            .name(name)
+            .build();
+        return Blocking.get(() -> sns().createTopic(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<DeleteEndpointResult> deleteEndpoint(DeleteEndpointRequest request) {
+    public Promise<DeleteEndpointResponse> deleteEndpoint(DeleteEndpointRequest request) {
         return Blocking.get(() -> sns().deleteEndpoint(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<DeletePlatformApplicationResult> deletePlatformApplication(
+    public Promise<DeletePlatformApplicationResponse> deletePlatformApplication(
         DeletePlatformApplicationRequest request
     ) {
         return Blocking.get(() -> sns().deletePlatformApplication(request))
@@ -185,21 +202,24 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<DeleteTopicResult> deleteTopic(String topicArn) {
-        return Blocking.get(() -> sns().deleteTopic(topicArn))
+    public Promise<DeleteTopicResponse> deleteTopic(String topicArn) {
+        DeleteTopicRequest request = DeleteTopicRequest.builder()
+            .topicArn(topicArn)
+            .build();
+        return Blocking.get(() -> sns().deleteTopic(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<GetEndpointAttributesResult> getEndpointAttributes(GetEndpointAttributesRequest request) {
+    public Promise<GetEndpointAttributesResponse> getEndpointAttributes(GetEndpointAttributesRequest request) {
         return Blocking.get(() -> sns().getEndpointAttributes(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<GetPlatformApplicationAttributesResult> getPlatformApplicationAttributes(
+    public Promise<GetPlatformApplicationAttributesResponse> getPlatformApplicationAttributes(
         GetPlatformApplicationAttributesRequest request
     ) {
         return Blocking.get(() -> sns().getPlatformApplicationAttributes(request))
@@ -208,14 +228,14 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<GetSMSAttributesResult> getSMSAttributes(GetSMSAttributesRequest request) {
+    public Promise<GetSmsAttributesResponse> getSMSAttributes(GetSmsAttributesRequest request) {
         return Blocking.get(() -> sns().getSMSAttributes(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<GetSubscriptionAttributesResult> getSubscriptionAttributes(
+    public Promise<GetSubscriptionAttributesResponse> getSubscriptionAttributes(
         GetSubscriptionAttributesRequest request
     ) {
         return Blocking.get(() -> sns().getSubscriptionAttributes(request))
@@ -224,28 +244,34 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<GetSubscriptionAttributesResult> getSubscriptionAttributes(String subscriptionArn) {
-        return Blocking.get(() -> sns().getSubscriptionAttributes(subscriptionArn))
+    public Promise<GetSubscriptionAttributesResponse> getSubscriptionAttributes(String subscriptionArn) {
+        GetSubscriptionAttributesRequest request = GetSubscriptionAttributesRequest.builder()
+            .subscriptionArn(subscriptionArn)
+            .build();
+        return Blocking.get(() -> sns().getSubscriptionAttributes(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<GetTopicAttributesResult> getTopicAttributes(GetTopicAttributesRequest request) {
+    public Promise<GetTopicAttributesResponse> getTopicAttributes(GetTopicAttributesRequest request) {
         return Blocking.get(() -> sns().getTopicAttributes(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<GetTopicAttributesResult> getTopicAttributes(String topicArn) {
-        return Blocking.get(() -> sns().getTopicAttributes(topicArn))
+    public Promise<GetTopicAttributesResponse> getTopicAttributes(String topicArn) {
+        GetTopicAttributesRequest request = GetTopicAttributesRequest.builder()
+            .topicArn(topicArn)
+            .build();
+        return Blocking.get(() -> sns().getTopicAttributes(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ListEndpointsByPlatformApplicationResult> listEndpointsByPlatformApplication(
+    public Promise<ListEndpointsByPlatformApplicationResponse> listEndpointsByPlatformApplication(
         ListEndpointsByPlatformApplicationRequest request
     ) {
         return Blocking.get(() -> sns().listEndpointsByPlatformApplication(request))
@@ -254,133 +280,159 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ListPhoneNumbersOptedOutResult> listPhoneNumbersOptedOut(ListPhoneNumbersOptedOutRequest request) {
+    public Promise<ListPhoneNumbersOptedOutResponse> listPhoneNumbersOptedOut(ListPhoneNumbersOptedOutRequest request) {
         return Blocking.get(() -> sns().listPhoneNumbersOptedOut(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ListPlatformApplicationsResult> listPlatformApplications(ListPlatformApplicationsRequest request) {
+    public Promise<ListPlatformApplicationsResponse> listPlatformApplications(ListPlatformApplicationsRequest request) {
         return Blocking.get(() -> sns().listPlatformApplications(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ListPlatformApplicationsResult> listPlatformApplications() {
+    public Promise<ListPlatformApplicationsResponse> listPlatformApplications() {
         return Blocking.get(() -> sns().listPlatformApplications())
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ListSubscriptionsResult> listSubscriptions(ListSubscriptionsRequest request) {
+    public Promise<ListSubscriptionsResponse> listSubscriptions(ListSubscriptionsRequest request) {
         return Blocking.get(() -> sns().listSubscriptions(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ListSubscriptionsResult> listSubscriptions() {
+    public Promise<ListSubscriptionsResponse> listSubscriptions() {
         return Blocking.get(() -> sns().listSubscriptions())
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ListSubscriptionsResult> listSubscriptions(String nextToken) {
-        return Blocking.get(() -> sns().listSubscriptions(nextToken))
+    public Promise<ListSubscriptionsResponse> listSubscriptions(String nextToken) {
+        ListSubscriptionsRequest request = ListSubscriptionsRequest.builder()
+            .nextToken(nextToken)
+            .build();
+        return Blocking.get(() -> sns().listSubscriptions(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ListSubscriptionsByTopicResult> listSubscriptionsByTopic(ListSubscriptionsByTopicRequest request) {
+    public Promise<ListSubscriptionsByTopicResponse> listSubscriptionsByTopic(ListSubscriptionsByTopicRequest request) {
         return Blocking.get(() -> sns().listSubscriptionsByTopic(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ListSubscriptionsByTopicResult> listSubscriptionsByTopic(String topicArn) {
-        return Blocking.get(() -> sns().listSubscriptionsByTopic(topicArn))
+    public Promise<ListSubscriptionsByTopicResponse> listSubscriptionsByTopic(String topicArn) {
+        ListSubscriptionsByTopicRequest request = ListSubscriptionsByTopicRequest.builder()
+            .topicArn(topicArn)
+            .build();
+        return Blocking.get(() -> sns().listSubscriptionsByTopic(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ListSubscriptionsByTopicResult> listSubscriptionsByTopic(String topicArn, String nextToken) {
-        return Blocking.get(() -> sns().listSubscriptionsByTopic(topicArn, nextToken))
+    public Promise<ListSubscriptionsByTopicResponse> listSubscriptionsByTopic(String topicArn, String nextToken) {
+        ListSubscriptionsByTopicRequest request = ListSubscriptionsByTopicRequest.builder()
+            .topicArn(topicArn)
+            .nextToken(nextToken)
+            .build();
+        return Blocking.get(() -> sns().listSubscriptionsByTopic(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ListTopicsResult> listTopics(ListTopicsRequest request) {
+    public Promise<ListTopicsResponse> listTopics(ListTopicsRequest request) {
         return Blocking.get(() -> sns().listTopics(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ListTopicsResult> listTopics() {
+    public Promise<ListTopicsResponse> listTopics() {
         return Blocking.get(() -> sns().listTopics())
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<ListTopicsResult> listTopics(String nextToken) {
-        return Blocking.get(() -> sns().listTopics(nextToken))
+    public Promise<ListTopicsResponse> listTopics(String nextToken) {
+        ListTopicsRequest request = ListTopicsRequest.builder()
+            .nextToken(nextToken)
+            .build();
+        return Blocking.get(() -> sns().listTopics(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<OptInPhoneNumberResult> optInPhoneNumber(OptInPhoneNumberRequest request) {
+    public Promise<OptInPhoneNumberResponse> optInPhoneNumber(OptInPhoneNumberRequest request) {
         return Blocking.get(() -> sns().optInPhoneNumber(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<PublishResult> publish(String topicArn, String message) {
-        return Blocking.get(() -> sns().publish(topicArn, message))
+    public Promise<PublishResponse> publish(String topicArn, String message) {
+        PublishRequest request = PublishRequest.builder()
+            .topicArn(topicArn)
+            .message(message)
+            .build();
+        return Blocking.get(() -> sns().publish(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<PublishResult> publish(String topicArn, String message, String subject) {
-        return Blocking.get(() -> sns().publish(topicArn, message, subject))
+    public Promise<PublishResponse> publish(String topicArn, String message, String subject) {
+        PublishRequest request = PublishRequest.builder()
+            .topicArn(topicArn)
+            .message(message)
+            .subject(subject)
+            .build();
+        return Blocking.get(() -> sns().publish(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<RemovePermissionResult> removePermission(RemovePermissionRequest request) {
+    public Promise<RemovePermissionResponse> removePermission(RemovePermissionRequest request) {
         return Blocking.get(() -> sns().removePermission(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<RemovePermissionResult> removePermission(String topicArn, String label) {
-        return Blocking.get(() -> sns().removePermission(topicArn, label))
+    public Promise<RemovePermissionResponse> removePermission(String topicArn, String label) {
+        RemovePermissionRequest request = RemovePermissionRequest.builder()
+            .topicArn(topicArn)
+            .label(label)
+            .build();
+        return Blocking.get(() -> sns().removePermission(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<SetEndpointAttributesResult> setEndpointAttributes(SetEndpointAttributesRequest request) {
+    public Promise<SetEndpointAttributesResponse> setEndpointAttributes(SetEndpointAttributesRequest request) {
         return Blocking.get(() -> sns().setEndpointAttributes(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<SetPlatformApplicationAttributesResult> setPlatformApplicationAttributes(
+    public Promise<SetPlatformApplicationAttributesResponse> setPlatformApplicationAttributes(
         SetPlatformApplicationAttributesRequest request
     ) {
         return Blocking.get(() -> sns().setPlatformApplicationAttributes(request))
@@ -389,14 +441,14 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<SetSMSAttributesResult> setSMSAttributes(SetSMSAttributesRequest request) {
+    public Promise<SetSmsAttributesResponse> setSMSAttributes(SetSmsAttributesRequest request) {
         return Blocking.get(() -> sns().setSMSAttributes(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<SetSubscriptionAttributesResult> setSubscriptionAttributes(
+    public Promise<SetSubscriptionAttributesResponse> setSubscriptionAttributes(
         SetSubscriptionAttributesRequest request
     ) {
         return Blocking.get(() -> sns().setSubscriptionAttributes(request))
@@ -405,58 +457,69 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<SetSubscriptionAttributesResult> setSubscriptionAttributes(
+    public Promise<SetSubscriptionAttributesResponse> setSubscriptionAttributes(
         String subscriptionArn,
         String attributeName,
         String attributeValue
     ) {
-        return Blocking.get(() -> sns().setSubscriptionAttributes(subscriptionArn, attributeName, attributeValue))
+        SetSubscriptionAttributesRequest request = SetSubscriptionAttributesRequest.builder()
+            .subscriptionArn(subscriptionArn)
+            .attributeName(attributeName)
+            .attributeValue(attributeValue)
+            .build();
+        return Blocking.get(() -> sns().setSubscriptionAttributes(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<SetTopicAttributesResult> setTopicAttributes(SetTopicAttributesRequest request) {
+    public Promise<SetTopicAttributesResponse> setTopicAttributes(SetTopicAttributesRequest request) {
         return Blocking.get(() -> sns().setTopicAttributes(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<SetTopicAttributesResult> setTopicAttributes(
+    public Promise<SetTopicAttributesResponse> setTopicAttributes(
         String topicArn,
         String attributeName,
         String attributeValue
     ) {
-        return Blocking.get(() -> sns().setTopicAttributes(topicArn, attributeName, attributeValue))
+        SetTopicAttributesRequest request = SetTopicAttributesRequest.builder()
+            .topicArn(topicArn)
+            .attributeName(attributeName)
+            .attributeValue(attributeValue)
+            .build();
+        return Blocking.get(() -> sns().setTopicAttributes(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<SubscribeResult> subscribe(String topicArn, String protocol, String endpoint) {
-        return Blocking.get(() -> sns().subscribe(topicArn, protocol, endpoint))
+    public Promise<SubscribeResponse> subscribe(String topicArn, String protocol, String endpoint) {
+        SubscribeRequest request = SubscribeRequest.builder()
+            .topicArn(topicArn)
+            .protocol(protocol)
+            .endpoint(endpoint)
+            .build();
+        return Blocking.get(() -> sns().subscribe(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<UnsubscribeResult> unsubscribe(UnsubscribeRequest request) {
+    public Promise<UnsubscribeResponse> unsubscribe(UnsubscribeRequest request) {
         return Blocking.get(() -> sns().unsubscribe(request))
             .transform(breaker);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public Promise<UnsubscribeResult> unsubscribe(String subscriptionArn) {
-        return Blocking.get(() -> sns().unsubscribe(subscriptionArn))
-            .transform(breaker);
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public Promise<ResponseMetadata> getCachedResponseMetadata(AmazonWebServiceRequest request) {
-        return Blocking.get(() -> sns().getCachedResponseMetadata(request))
+    public Promise<UnsubscribeResponse> unsubscribe(String subscriptionArn) {
+        UnsubscribeRequest request = UnsubscribeRequest.builder()
+            .subscriptionArn(subscriptionArn)
+            .build();
+        return Blocking.get(() -> sns().unsubscribe(request))
             .transform(breaker);
     }
 
@@ -482,19 +545,19 @@ public class DefaultSnsService implements SnsService {
 
     @Override
     public void shutdown() {
-        this.clients.forEach(AmazonSNS::shutdown);
+        this.clients.forEach(SnsClient::close);
     }
 
-    private AmazonSNS sns() {
+    SnsClient sns() {
         if (!config.isEnabled()) {
             throw new IllegalStateException("Unable to execute SNS API when module is disabled.");
         }
         return activeClient.get();
     }
 
-    private boolean isAwsServiceError(Throwable t) {
-        if (t instanceof AmazonServiceException) {
-            int status = ((AmazonServiceException) t).getStatusCode();
+    boolean isAwsServiceError(Throwable t) {
+        if (t instanceof AwsServiceException) {
+            int status = ((AwsServiceException) t).statusCode();
             return status >= 500 && status <= 599;
         }
         return false;

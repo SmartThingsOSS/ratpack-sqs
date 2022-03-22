@@ -1,7 +1,7 @@
 package smartthings.ratpack.sns;
 
-import com.amazonaws.services.sns.AmazonSNS;
+import software.amazon.awssdk.services.sns.SnsClient;
 
 public interface AmazonSNSProvider {
-    AmazonSNS get(SnsModule.EndpointConfig config);
+    SnsClient get(SnsModule.EndpointConfig config);
 }

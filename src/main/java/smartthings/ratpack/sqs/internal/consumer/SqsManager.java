@@ -9,7 +9,7 @@ import ratpack.service.StartEvent;
 import smartthings.ratpack.sqs.DefaultSqsService;
 import smartthings.ratpack.sqs.SqsModule;
 import smartthings.ratpack.sqs.SqsService;
-import smartthings.ratpack.sqs.AmazonSQSProvider;
+import smartthings.ratpack.sqs.SQSClientProvider;
 
 import java.util.Collection;
 import java.util.Map;
@@ -22,10 +22,10 @@ public class SqsManager implements Service {
 
     private final Map<String, SqsService> sqsMap = new ConcurrentHashMap<>();
     private final SqsModule.Config config;
-    private final AmazonSQSProvider sqsProvider;
+    private final SQSClientProvider sqsProvider;
 
     @Inject
-    public SqsManager(SqsModule.Config config, AmazonSQSProvider sqsProvider) {
+    public SqsManager(SqsModule.Config config, SQSClientProvider sqsProvider) {
         this.config = config;
         this.sqsProvider = sqsProvider;
     }

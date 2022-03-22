@@ -1,0 +1,44 @@
+<ruleset name="Custom Rules"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+    <description>
+        Custom ruleset with some exclusions for minor annoyances and false positives.
+    </description>
+
+    <rule ref="category/java/bestpractices.xml">
+        <exclude name="GuardLogStatement"/>
+    </rule>
+    <rule ref="category/java/security.xml">
+    </rule>
+
+    <rule ref="category/java/errorprone.xml">
+        <exclude name="AvoidFieldNameMatchingMethodName"/>
+        <exclude name="BeanMembersShouldSerialize"/>
+        <exclude name="MissingSerialVersionUID"/>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/DataflowAnomalyAnalysis">
+        <properties>
+            <property name="violationSuppressRegex" value="Found '(DU|UR)'-anomaly.*"/>
+        </properties>
+    </rule>
+    <rule ref="category/java/errorprone.xml/AvoidDuplicateLiterals">
+        <properties>
+            <property name="violationSuppressRegex" value="The String literal &quot;unchecked&quot;.*"/>
+        </properties>
+    </rule>
+    <rule ref="category/java/errorprone.xml/AvoidLiteralsInIfCondition">
+        <properties>
+            <property name="ignoreMagicNumbers" value="-1,0,1" />
+        </properties>
+    </rule>
+    <rule ref="category/java/errorprone.xml/CloseResource">
+        <properties>
+            <!-- could be a minor resource leak if DefaultSnsService lifecycle is shorter than the application's for some reason -->
+            <property name="violationSuppressRegex" value=".*StsClient.*"/>
+        </properties>
+    </rule>
+
+</ruleset>
